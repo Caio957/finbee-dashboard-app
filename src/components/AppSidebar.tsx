@@ -8,7 +8,7 @@ import {
   FileText,
   TrendingUp,
   Calendar,
-  Category
+  Tag
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -59,7 +59,7 @@ const menuItems = [
   {
     title: "Categorias",
     url: "/categories",
-    icon: Category,
+    icon: Tag,
   },
   {
     title: "Relatórios",
