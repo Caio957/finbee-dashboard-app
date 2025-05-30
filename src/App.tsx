@@ -9,8 +9,12 @@ import { AppSidebar } from "@/components/AppSidebar";
 import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
 import Accounts from "./pages/Accounts";
+import CreditCards from "./pages/CreditCards";
+import Bills from "./pages/Bills";
+import Investments from "./pages/Investments";
 import Reports from "./pages/Reports";
 import Categories from "./pages/Categories";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
