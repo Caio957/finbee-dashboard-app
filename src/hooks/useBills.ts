@@ -24,7 +24,7 @@ export const useBills = () => {
         .order("due_date", { ascending: true });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as Bill[];
     },
   });
 };

@@ -25,7 +25,7 @@ export const useTransactions = () => {
         .order("date", { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as Transaction[];
     },
   });
 };
