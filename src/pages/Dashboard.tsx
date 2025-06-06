@@ -4,8 +4,52 @@ import { ExpenseChart } from "@/components/ExpenseChart";
 import { RecentTransactions } from "@/components/RecentTransactions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wallet, TrendingUp, TrendingDown, Calendar } from "lucide-react";
+import { useAccounts } from "@/hooks/useAccounts";
+import { useTransactions } from "@/hooks/useTransactions";
+import { useBills } from "@/hooks/useBills";
+import { useInvestments } from "@/hooks/useInvestments";
 
 export default function Dashboard() {
+  const { data: accounts = [] } = useAccounts();
+  const { data: transactions = [] } = useTransactions();
+  const { data: bills = [] } = useBills();
+  const { data: investments = [] } = useInvestments();
+
+  // Calcular saldo total
+  const totalBalance = accounts.reduce((sum, account) => sum + account.balance, 0);
+  const totalInvestments = investments.reduce((sum, inv) => sum + inv.current_value, 0);
+  const totalPatrimony = totalBalance + totalInvestments;
+
+  // Calcular receitas e despesas do mês atual
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  
+  const currentMonthTransactions = transactions.filter(t => {
+    const transactionDate = new Date(t.date);
+    return transactionDate.getMonth() === currentMonth && 
+           transactionDate.getFullYear() === currentYear;
+  });
+
+  const monthlyIncome = currentMonthTransactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const monthlyExpenses = currentMonthTransactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  // Calcular próximas faturas (próximos 7 dias)
+  const nextWeek = new Date();
+  nextWeek.setDate(nextWeek.getDate() + 7);
+  
+  const upcomingBills = bills.filter(bill => {
+    const dueDate = new Date(bill.due_date);
+    const today = new Date();
+    return dueDate >= today && dueDate <= nextWeek && bill.status === 'pending';
+  });
+
+  const upcomingBillsTotal = upcomingBills.reduce((sum, bill) => sum + bill.amount, 0);
+
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       <div>
@@ -16,28 +60,28 @@ export default function Dashboard() {
       {/* Cards de Resumo */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <FinancialCard
-          title="Saldo Total"
-          value="R$ 12.450,00"
+          title="Patrimônio Total"
+          value={`R$ ${totalPatrimony.toLocaleString('pt-BR')}`}
           icon={<Wallet className="h-4 w-4" />}
-          subtitle="Todas as contas"
+          subtitle="Contas + Investimentos"
         />
         <FinancialCard
           title="Receitas do Mês"
-          value="R$ 5.800,00"
+          value={`R$ ${monthlyIncome.toLocaleString('pt-BR')}`}
           type="income"
           icon={<TrendingUp className="h-4 w-4" />}
-          subtitle="Janeiro 2024"
+          subtitle={new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
         />
         <FinancialCard
           title="Despesas do Mês"
-          value="R$ 3.300,00"
+          value={`R$ ${monthlyExpenses.toLocaleString('pt-BR')}`}
           type="expense"
           icon={<TrendingDown className="h-4 w-4" />}
-          subtitle="Janeiro 2024"
+          subtitle={new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
         />
         <FinancialCard
           title="Próximas Faturas"
-          value="R$ 1.250,00"
+          value={`R$ ${upcomingBillsTotal.toLocaleString('pt-BR')}`}
           icon={<Calendar className="h-4 w-4" />}
           subtitle="Próximos 7 dias"
         />
@@ -64,23 +108,34 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {[
-              { name: "Cartão de Crédito", amount: 850, dueDate: "25/01", status: "pending" },
-              { name: "Aluguel", amount: 1200, dueDate: "05/02", status: "pending" },
-              { name: "Internet", amount: 89, dueDate: "15/02", status: "pending" },
-              { name: "Energia", amount: 120, dueDate: "20/02", status: "pending" }
-            ].map((bill, index) => (
-              <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium">{bill.name}</p>
-                  <p className="text-sm text-muted-foreground">Vence em {bill.dueDate}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-medium text-red-600">R$ {bill.amount.toLocaleString('pt-BR')}</p>
-                  <div className="w-2 h-2 bg-yellow-500 rounded-full ml-auto"></div>
-                </div>
-              </div>
-            ))}
+            {upcomingBills.length === 0 ? (
+              <p className="text-center text-muted-foreground py-4">
+                Nenhuma fatura vencendo nos próximos 7 dias
+              </p>
+            ) : (
+              upcomingBills.slice(0, 4).map((bill) => {
+                const daysUntilDue = Math.ceil(
+                  (new Date(bill.due_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+                );
+                
+                return (
+                  <div key={bill.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">{bill.description}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Vence em {daysUntilDue} dia{daysUntilDue !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium text-red-600">R$ {bill.amount.toLocaleString('pt-BR')}</p>
+                      <div className={`w-2 h-2 rounded-full ml-auto ${
+                        daysUntilDue <= 2 ? 'bg-red-500' : daysUntilDue <= 5 ? 'bg-yellow-500' : 'bg-green-500'
+                      }`}></div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </CardContent>
       </Card>

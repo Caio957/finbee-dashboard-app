@@ -5,30 +5,50 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, Trash2 } from "lucide-react";
-
-interface Category {
-  id: string;
-  name: string;
-  type: "income" | "expense";
-  color: string;
-  icon: string;
-  transactionCount: number;
-}
-
-const categories: Category[] = [
-  { id: "1", name: "Salário", type: "income", color: "#16a34a", icon: "💰", transactionCount: 12 },
-  { id: "2", name: "Freelance", type: "income", color: "#059669", icon: "💻", transactionCount: 8 },
-  { id: "3", name: "Alimentação", type: "expense", color: "#dc2626", icon: "🍽️", transactionCount: 45 },
-  { id: "4", name: "Transporte", type: "expense", color: "#ea580c", icon: "🚗", transactionCount: 23 },
-  { id: "5", name: "Moradia", type: "expense", color: "#b91c1c", icon: "🏠", transactionCount: 6 },
-  { id: "6", name: "Lazer", type: "expense", color: "#9333ea", icon: "🎮", transactionCount: 18 },
-  { id: "7", name: "Saúde", type: "expense", color: "#0891b2", icon: "⚕️", transactionCount: 12 },
-  { id: "8", name: "Educação", type: "expense", color: "#7c3aed", icon: "📚", transactionCount: 4 }
-];
+import { useCategories, useCreateCategory, useDeleteCategory } from "@/hooks/useCategories";
+import { useTransactions } from "@/hooks/useTransactions";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Categories() {
+  const { data: categories = [], isLoading } = useCategories();
+  const { data: transactions = [] } = useTransactions();
+  const createCategory = useCreateCategory();
+  const deleteCategory = useDeleteCategory();
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<"all" | "income" | "expense">("all");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    type: "expense" as "income" | "expense",
+    color: "#6B7280",
+    icon: "📝",
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await createCategory.mutateAsync(formData);
+    setIsDialogOpen(false);
+    setFormData({
+      name: "",
+      type: "expense",
+      color: "#6B7280",
+      icon: "📝",
+    });
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm("Tem certeza que deseja excluir esta categoria?")) {
+      await deleteCategory.mutateAsync(id);
+    }
+  };
+
+  // Contar transações por categoria
+  const getCategoryTransactionCount = (categoryId: string) => {
+    return transactions.filter(t => t.category_id === categoryId).length;
+  };
 
   const filteredCategories = categories.filter(category => {
     const matchesSearch = category.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -39,6 +59,10 @@ export default function Categories() {
   const incomeCategories = filteredCategories.filter(cat => cat.type === "income");
   const expenseCategories = filteredCategories.filter(cat => cat.type === "expense");
 
+  if (isLoading) {
+    return <div className="p-6">Carregando...</div>;
+  }
+
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -46,10 +70,65 @@ export default function Categories() {
           <h1 className="text-3xl font-bold">Categorias</h1>
           <p className="text-muted-foreground">Organize suas transações por categorias</p>
         </div>
-        <Button className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Nova Categoria
-        </Button>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Nova Categoria
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Adicionar Nova Categoria</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="name">Nome</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Ex: Alimentação"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="type">Tipo</Label>
+                <Select value={formData.type} onValueChange={(value: any) => setFormData({ ...formData, type: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="income">Receita</SelectItem>
+                    <SelectItem value="expense">Despesa</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="icon">Ícone</Label>
+                <Input
+                  id="icon"
+                  value={formData.icon}
+                  onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+                  placeholder="🍽️"
+                  maxLength={2}
+                />
+              </div>
+              <div>
+                <Label htmlFor="color">Cor</Label>
+                <Input
+                  id="color"
+                  type="color"
+                  value={formData.color}
+                  onChange={(e) => setFormData({ ...formData, color: e.target.value })}
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={createCategory.isPending}>
+                {createCategory.isPending ? "Criando..." : "Criar Categoria"}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Filtros */}
@@ -125,7 +204,7 @@ export default function Categories() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {categories.reduce((sum, cat) => sum + cat.transactionCount, 0)}
+              {transactions.length}
             </div>
           </CardContent>
         </Card>
@@ -149,7 +228,7 @@ export default function Categories() {
                     <div>
                       <p className="font-medium">{category.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {category.transactionCount} transações
+                        {getCategoryTransactionCount(category.id)} transações
                       </p>
                     </div>
                   </div>
@@ -157,10 +236,12 @@ export default function Categories() {
                     <Badge variant="outline" className="text-green-600 border-green-600">
                       Receita
                     </Badge>
-                    <Button variant="ghost" size="sm">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => handleDelete(category.id)}
+                      disabled={deleteCategory.isPending}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -189,7 +270,7 @@ export default function Categories() {
                     <div>
                       <p className="font-medium">{category.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {category.transactionCount} transações
+                        {getCategoryTransactionCount(category.id)} transações
                       </p>
                     </div>
                   </div>
@@ -197,16 +278,35 @@ export default function Categories() {
                     <Badge variant="outline" className="text-red-600 border-red-600">
                       Despesa
                     </Badge>
-                    <Button variant="ghost" size="sm">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => handleDelete(category.id)}
+                      disabled={deleteCategory.isPending}
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Estado vazio */}
+      {categories.length === 0 && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <div className="text-6xl mb-4">📝</div>
+            <h3 className="text-lg font-semibold mb-2">Nenhuma categoria criada</h3>
+            <p className="text-muted-foreground text-center mb-4">
+              Crie categorias para organizar suas transações de receitas e despesas
+            </p>
+            <Button onClick={() => setIsDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Criar primeira categoria
+            </Button>
           </CardContent>
         </Card>
       )}

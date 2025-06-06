@@ -1,84 +1,70 @@
 
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Plus, TrendingUp, TrendingDown, DollarSign, PieChart } from "lucide-react";
-
-interface Investment {
-  id: string;
-  name: string;
-  type: "stock" | "fund" | "crypto" | "fixed";
-  invested: number;
-  currentValue: number;
-  profitLoss: number;
-  percentage: number;
-  quantity?: number;
-}
-
-const investments: Investment[] = [
-  {
-    id: "1",
-    name: "Tesouro Direto IPCA+",
-    type: "fixed",
-    invested: 10000,
-    currentValue: 10450,
-    profitLoss: 450,
-    percentage: 4.5
-  },
-  {
-    id: "2",
-    name: "ITSA4",
-    type: "stock",
-    invested: 5000,
-    currentValue: 5350,
-    profitLoss: 350,
-    percentage: 7.0,
-    quantity: 500
-  },
-  {
-    id: "3",
-    name: "Bitcoin",
-    type: "crypto",
-    invested: 3000,
-    currentValue: 2750,
-    profitLoss: -250,
-    percentage: -8.33
-  },
-  {
-    id: "4",
-    name: "XP Allocation FIC FIM",
-    type: "fund",
-    invested: 8000,
-    currentValue: 8240,
-    profitLoss: 240,
-    percentage: 3.0
-  }
-];
+import { useInvestments, useCreateInvestment } from "@/hooks/useInvestments";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Investments() {
-  const totalInvested = investments.reduce((sum, inv) => sum + inv.invested, 0);
-  const totalCurrent = investments.reduce((sum, inv) => sum + inv.currentValue, 0);
-  const totalProfitLoss = totalCurrent - totalInvested;
-  const totalPercentage = (totalProfitLoss / totalInvested) * 100;
+  const { data: investments = [], isLoading } = useInvestments();
+  const createInvestment = useCreateInvestment();
+  
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    type: "fixed" as "stock" | "fund" | "crypto" | "fixed",
+    invested_amount: 0,
+    current_value: 0,
+    quantity: null as number | null,
+  });
 
-  const getTypeLabel = (type: Investment["type"]) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await createInvestment.mutateAsync(formData);
+    setIsDialogOpen(false);
+    setFormData({
+      name: "",
+      type: "fixed",
+      invested_amount: 0,
+      current_value: 0,
+      quantity: null,
+    });
+  };
+
+  const totalInvested = investments.reduce((sum, inv) => sum + inv.invested_amount, 0);
+  const totalCurrent = investments.reduce((sum, inv) => sum + inv.current_value, 0);
+  const totalProfitLoss = totalCurrent - totalInvested;
+  const totalPercentage = totalInvested > 0 ? (totalProfitLoss / totalInvested) * 100 : 0;
+
+  const getTypeLabel = (type: string) => {
     switch (type) {
       case "stock": return "Ação";
       case "fund": return "Fundo";
       case "crypto": return "Crypto";
       case "fixed": return "Renda Fixa";
+      default: return type;
     }
   };
 
-  const getTypeColor = (type: Investment["type"]) => {
+  const getTypeColor = (type: string) => {
     switch (type) {
       case "stock": return "bg-blue-100 text-blue-800";
       case "fund": return "bg-green-100 text-green-800";
       case "crypto": return "bg-orange-100 text-orange-800";
       case "fixed": return "bg-purple-100 text-purple-800";
+      default: return "bg-gray-100 text-gray-800";
     }
   };
+
+  if (isLoading) {
+    return <div className="p-6">Carregando...</div>;
+  }
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -87,10 +73,83 @@ export default function Investments() {
           <h1 className="text-3xl font-bold">Investimentos</h1>
           <p className="text-muted-foreground">Acompanhe sua carteira de investimentos</p>
         </div>
-        <Button className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Novo Investimento
-        </Button>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Novo Investimento
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Adicionar Novo Investimento</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <Label htmlFor="name">Nome</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Ex: ITSA4"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="type">Tipo</Label>
+                <Select value={formData.type} onValueChange={(value: any) => setFormData({ ...formData, type: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="stock">Ação</SelectItem>
+                    <SelectItem value="fund">Fundo</SelectItem>
+                    <SelectItem value="crypto">Criptomoeda</SelectItem>
+                    <SelectItem value="fixed">Renda Fixa</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="invested_amount">Valor Investido</Label>
+                <Input
+                  id="invested_amount"
+                  type="number"
+                  step="0.01"
+                  value={formData.invested_amount}
+                  onChange={(e) => setFormData({ ...formData, invested_amount: Number(e.target.value) })}
+                  placeholder="5000.00"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="current_value">Valor Atual</Label>
+                <Input
+                  id="current_value"
+                  type="number"
+                  step="0.01"
+                  value={formData.current_value}
+                  onChange={(e) => setFormData({ ...formData, current_value: Number(e.target.value) })}
+                  placeholder="5350.00"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="quantity">Quantidade (opcional)</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  step="0.0001"
+                  value={formData.quantity || ""}
+                  onChange={(e) => setFormData({ ...formData, quantity: e.target.value ? Number(e.target.value) : null })}
+                  placeholder="100"
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={createInvestment.isPending}>
+                {createInvestment.isPending ? "Adicionando..." : "Adicionar Investimento"}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Resumo da Carteira */}
@@ -129,40 +188,42 @@ export default function Investments() {
             <CardTitle className="text-sm font-medium">Diversificação</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">4</div>
-            <p className="text-xs text-muted-foreground">tipos de ativos</p>
+            <div className="text-2xl font-bold">{investments.length}</div>
+            <p className="text-xs text-muted-foreground">investimentos</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Distribuição por Tipo */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <PieChart className="h-5 w-5" />
-            Distribuição da Carteira
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {["fixed", "fund", "stock", "crypto"].map(type => {
-              const typeInvestments = investments.filter(inv => inv.type === type);
-              const typeTotal = typeInvestments.reduce((sum, inv) => sum + inv.currentValue, 0);
-              const typePercentage = (typeTotal / totalCurrent) * 100;
-              
-              return typeTotal > 0 ? (
-                <div key={type} className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium">{getTypeLabel(type as Investment["type"])}</span>
-                    <span className="text-sm">R$ {typeTotal.toLocaleString('pt-BR')} ({typePercentage.toFixed(1)}%)</span>
+      {investments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <PieChart className="h-5 w-5" />
+              Distribuição da Carteira
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {["fixed", "fund", "stock", "crypto"].map(type => {
+                const typeInvestments = investments.filter(inv => inv.type === type);
+                const typeTotal = typeInvestments.reduce((sum, inv) => sum + inv.current_value, 0);
+                const typePercentage = totalCurrent > 0 ? (typeTotal / totalCurrent) * 100 : 0;
+                
+                return typeTotal > 0 ? (
+                  <div key={type} className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">{getTypeLabel(type)}</span>
+                      <span className="text-sm">R$ {typeTotal.toLocaleString('pt-BR')} ({typePercentage.toFixed(1)}%)</span>
+                    </div>
+                    <Progress value={typePercentage} className="h-2" />
                   </div>
-                  <Progress value={typePercentage} className="h-2" />
-                </div>
-              ) : null;
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                ) : null;
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Lista de Investimentos */}
       <Card>
@@ -171,39 +232,52 @@ export default function Investments() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {investments.map((investment) => (
-              <div key={investment.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-muted">
-                    {investment.profitLoss >= 0 ? 
-                      <TrendingUp className="h-5 w-5 text-green-600" /> : 
-                      <TrendingDown className="h-5 w-5 text-red-600" />
-                    }
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{investment.name}</p>
-                      <Badge className={getTypeColor(investment.type)}>
-                        {getTypeLabel(investment.type)}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span>Investido: R$ {investment.invested.toLocaleString('pt-BR')}</span>
-                      {investment.quantity && <span>• {investment.quantity} cotas</span>}
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-lg font-semibold">
-                    R$ {investment.currentValue.toLocaleString('pt-BR')}
-                  </div>
-                  <div className={`text-sm ${investment.profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {investment.profitLoss >= 0 ? '+' : ''}R$ {investment.profitLoss.toLocaleString('pt-BR')} 
-                    ({investment.percentage >= 0 ? '+' : ''}{investment.percentage.toFixed(2)}%)
-                  </div>
-                </div>
+            {investments.length === 0 ? (
+              <div className="text-center py-8">
+                <PieChart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">Nenhum investimento cadastrado</p>
+                <p className="text-sm text-muted-foreground">Clique em "Novo Investimento" para começar</p>
               </div>
-            ))}
+            ) : (
+              investments.map((investment) => {
+                const profitLoss = investment.current_value - investment.invested_amount;
+                const percentage = investment.invested_amount > 0 ? (profitLoss / investment.invested_amount) * 100 : 0;
+                
+                return (
+                  <div key={investment.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-muted">
+                        {profitLoss >= 0 ? 
+                          <TrendingUp className="h-5 w-5 text-green-600" /> : 
+                          <TrendingDown className="h-5 w-5 text-red-600" />
+                        }
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{investment.name}</p>
+                          <Badge className={getTypeColor(investment.type)}>
+                            {getTypeLabel(investment.type)}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span>Investido: R$ {investment.invested_amount.toLocaleString('pt-BR')}</span>
+                          {investment.quantity && <span>• {investment.quantity} cotas</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-semibold">
+                        R$ {investment.current_value.toLocaleString('pt-BR')}
+                      </div>
+                      <div className={`text-sm ${profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {profitLoss >= 0 ? '+' : ''}R$ {profitLoss.toLocaleString('pt-BR')} 
+                        ({percentage >= 0 ? '+' : ''}{percentage.toFixed(2)}%)
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </CardContent>
       </Card>
