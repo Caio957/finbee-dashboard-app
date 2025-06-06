@@ -1,46 +1,60 @@
 
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Wallet, CreditCard, PiggyBank } from "lucide-react";
-
-interface Account {
-  id: string;
-  name: string;
-  type: "checking" | "savings" | "credit";
-  balance: number;
-  bank: string;
-  icon: React.ReactNode;
-}
-
-const accounts: Account[] = [
-  {
-    id: "1",
-    name: "Conta Corrente",
-    type: "checking",
-    balance: 8500,
-    bank: "Banco do Brasil",
-    icon: <Wallet className="h-5 w-5" />
-  },
-  {
-    id: "2",
-    name: "Poupança",
-    type: "savings",
-    balance: 15000,
-    bank: "Caixa Econômica",
-    icon: <PiggyBank className="h-5 w-5" />
-  },
-  {
-    id: "3",
-    name: "Cartão de Crédito",
-    type: "credit",
-    balance: -1200,
-    bank: "Nubank",
-    icon: <CreditCard className="h-5 w-5" />
-  }
-];
+import { useAccounts, useCreateAccount } from "@/hooks/useAccounts";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Accounts() {
+  const { data: accounts = [], isLoading } = useAccounts();
+  const createAccount = useCreateAccount();
+  const { signOut } = useAuth();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    type: "checking" as "checking" | "savings" | "credit",
+    balance: 0,
+    bank: "",
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await createAccount.mutateAsync(formData);
+    setIsDialogOpen(false);
+    setFormData({ name: "", type: "checking", balance: 0, bank: "" });
+  };
+
+  const getIcon = (type: string) => {
+    switch (type) {
+      case "checking": return <Wallet className="h-5 w-5" />;
+      case "savings": return <PiggyBank className="h-5 w-5" />;
+      case "credit": return <CreditCard className="h-5 w-5" />;
+      default: return <Wallet className="h-5 w-5" />;
+    }
+  };
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case "checking": return "Corrente";
+      case "savings": return "Poupança";
+      case "credit": return "Crédito";
+      default: return type;
+    }
+  };
+
+  const totalBalance = accounts.reduce((sum, account) => sum + Number(account.balance), 0);
+  const totalDebt = accounts.filter(account => account.type === "credit" && Number(account.balance) < 0).reduce((sum, account) => sum + Math.abs(Number(account.balance)), 0);
+
+  if (isLoading) {
+    return <div className="p-6">Carregando...</div>;
+  }
+
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       <div className="flex justify-between items-center">
@@ -48,10 +62,70 @@ export default function Accounts() {
           <h1 className="text-3xl font-bold">Contas</h1>
           <p className="text-muted-foreground">Gerencie suas contas bancárias</p>
         </div>
-        <Button className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Nova Conta
-        </Button>
+        <div className="flex gap-2">
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Nova Conta
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Adicionar Nova Conta</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="name">Nome da Conta</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="type">Tipo</Label>
+                  <Select value={formData.type} onValueChange={(value: any) => setFormData({ ...formData, type: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="checking">Conta Corrente</SelectItem>
+                      <SelectItem value="savings">Poupança</SelectItem>
+                      <SelectItem value="credit">Cartão de Crédito</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="bank">Banco</Label>
+                  <Input
+                    id="bank"
+                    value={formData.bank}
+                    onChange={(e) => setFormData({ ...formData, bank: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="balance">Saldo Inicial</Label>
+                  <Input
+                    id="balance"
+                    type="number"
+                    step="0.01"
+                    value={formData.balance}
+                    onChange={(e) => setFormData({ ...formData, balance: Number(e.target.value) })}
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={createAccount.isPending}>
+                  {createAccount.isPending ? "Criando..." : "Criar Conta"}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+          <Button variant="outline" onClick={signOut}>
+            Sair
+          </Button>
+        </div>
       </div>
 
       {/* Resumo Total */}
@@ -63,15 +137,15 @@ export default function Accounts() {
           <div className="grid gap-4 md:grid-cols-3">
             <div className="text-center">
               <p className="text-sm text-muted-foreground">Saldo Total</p>
-              <p className="text-2xl font-bold text-green-600">R$ 22.300,00</p>
+              <p className="text-2xl font-bold text-green-600">R$ {totalBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
             <div className="text-center">
               <p className="text-sm text-muted-foreground">Dívidas</p>
-              <p className="text-2xl font-bold text-red-600">R$ 1.200,00</p>
+              <p className="text-2xl font-bold text-red-600">R$ {totalDebt.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
             <div className="text-center">
               <p className="text-sm text-muted-foreground">Patrimônio Líquido</p>
-              <p className="text-2xl font-bold">R$ 21.100,00</p>
+              <p className="text-2xl font-bold">R$ {(totalBalance - totalDebt).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
             </div>
           </div>
         </CardContent>
@@ -83,21 +157,19 @@ export default function Accounts() {
           <Card key={account.id} className="hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <div className="flex items-center gap-2">
-                {account.icon}
+                {getIcon(account.type)}
                 <CardTitle className="text-base">{account.name}</CardTitle>
               </div>
               <Badge variant="outline">
-                {account.type === "checking" && "Corrente"}
-                {account.type === "savings" && "Poupança"}
-                {account.type === "credit" && "Crédito"}
+                {getTypeLabel(account.type)}
               </Badge>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
                 <div className={`text-2xl font-bold ${
-                  account.balance >= 0 ? "text-green-600" : "text-red-600"
+                  Number(account.balance) >= 0 ? "text-green-600" : "text-red-600"
                 }`}>
-                  R$ {Math.abs(account.balance).toLocaleString('pt-BR')}
+                  R$ {Math.abs(Number(account.balance)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </div>
                 <p className="text-sm text-muted-foreground">{account.bank}</p>
                 <div className="flex gap-2 mt-4">
@@ -114,34 +186,13 @@ export default function Accounts() {
         ))}
       </div>
 
-      {/* Movimentação Recente por Conta */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Últimas Movimentações</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {[
-              { account: "Conta Corrente", description: "Salário", amount: 5000, date: "15/01" },
-              { account: "Cartão de Crédito", description: "Supermercado", amount: -150, date: "14/01" },
-              { account: "Poupança", description: "Transferência", amount: 1000, date: "13/01" },
-              { account: "Conta Corrente", description: "Uber", amount: -25, date: "12/01" }
-            ].map((movement, index) => (
-              <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <p className="font-medium">{movement.description}</p>
-                  <p className="text-sm text-muted-foreground">{movement.account} • {movement.date}</p>
-                </div>
-                <div className={`font-medium ${
-                  movement.amount >= 0 ? "text-green-600" : "text-red-600"
-                }`}>
-                  {movement.amount >= 0 ? "+" : ""}R$ {Math.abs(movement.amount).toLocaleString('pt-BR')}
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {accounts.length === 0 && (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <p className="text-muted-foreground">Nenhuma conta encontrada. Adicione sua primeira conta!</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
