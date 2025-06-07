@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -17,13 +16,57 @@ export const useAccounts = () => {
   return useQuery({
     queryKey: ["accounts"],
     queryFn: async (): Promise<Account[]> => {
-      const { data, error } = await supabase
+      // Primeiro, buscamos as contas
+      const { data: accounts, error: accountsError } = await supabase
         .from("accounts")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      return (data || []) as Account[];
+      if (accountsError) throw accountsError;
+
+      // Para cada conta, calculamos o saldo baseado nas transações
+      const accountsWithBalance = await Promise.all(
+        (accounts || []).map(async (account) => {
+          // Buscar transações desta conta
+          const { data: transactions, error: transactionsError } = await supabase
+            .from("transactions")
+            .select("amount, type")
+            .eq("account_id", account.id);
+
+          if (transactionsError) {
+            console.error("Error fetching transactions for account:", transactionsError);
+            return account;
+          }
+
+          // Calcular saldo baseado nas transações
+          const calculatedBalance = (transactions || []).reduce((sum, transaction) => {
+            if (transaction.type === "income") {
+              return sum + Number(transaction.amount);
+            } else {
+              return sum - Number(transaction.amount);
+            }
+          }, 0);
+
+          // Atualizar o saldo na conta se for diferente
+          if (Math.abs(calculatedBalance - Number(account.balance)) > 0.01) {
+            const { error: updateError } = await supabase
+              .from("accounts")
+              .update({ balance: calculatedBalance })
+              .eq("id", account.id);
+
+            if (updateError) {
+              console.error("Error updating account balance:", updateError);
+            }
+          }
+
+          return {
+            ...account,
+            balance: calculatedBalance
+          };
+        })
+      );
+
+      return accountsWithBalance as Account[];
     },
   });
 };

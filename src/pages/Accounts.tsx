@@ -7,15 +7,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Wallet, CreditCard, PiggyBank, Receipt, Edit } from "lucide-react";
-import { useAccounts, useCreateAccount, type Account } from "@/hooks/useAccounts";
+import { Plus, Wallet, CreditCard, PiggyBank, Receipt, Edit, RefreshCw } from "lucide-react";
+import { useAccounts, useCreateAccount, useUpdateAccount, type Account } from "@/hooks/useAccounts";
 import { useAuth } from "@/hooks/useAuth";
 import { AccountStatementDialog } from "@/components/AccountStatementDialog";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function Accounts() {
-  const { data: accounts = [], isLoading } = useAccounts();
+  const { data: accounts = [], isLoading, refetch } = useAccounts();
   const createAccount = useCreateAccount();
+  const updateAccount = useUpdateAccount();
   const { signOut } = useAuth();
+  const queryClient = useQueryClient();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
@@ -36,6 +39,18 @@ export default function Accounts() {
     setFormData({ name: "", type: "checking", balance: 0, bank: "" });
   };
 
+  const handleEditSubmit = async () => {
+    if (!selectedAccount) return;
+    
+    await updateAccount.mutateAsync({
+      id: selectedAccount.id,
+      name: formData.name,
+      bank: formData.bank,
+    });
+    setIsEditOpen(false);
+    setSelectedAccount(null);
+  };
+
   const handleShowStatement = (account: Account) => {
     setSelectedAccount(account);
     setIsStatementOpen(true);
@@ -50,6 +65,13 @@ export default function Accounts() {
       bank: account.bank,
     });
     setIsEditOpen(true);
+  };
+
+  const handleRefreshBalances = async () => {
+    // Invalida as queries para forçar recálculo dos saldos
+    await queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+    await refetch();
   };
 
   const getIcon = (type: string) => {
@@ -85,6 +107,10 @@ export default function Accounts() {
           <p className="text-muted-foreground">Gerencie suas contas bancárias</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={handleRefreshBalances} className="flex items-center gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Atualizar Saldos
+          </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="flex items-center gap-2">
@@ -257,7 +283,7 @@ export default function Accounts() {
               />
             </div>
             <div className="flex gap-2">
-              <Button className="flex-1">
+              <Button className="flex-1" onClick={handleEditSubmit}>
                 Salvar Alterações
               </Button>
               <Button variant="outline" onClick={() => setIsEditOpen(false)}>
