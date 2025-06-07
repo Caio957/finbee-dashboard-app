@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -19,13 +18,54 @@ export const useCreditCards = () => {
   return useQuery({
     queryKey: ["credit_cards"],
     queryFn: async (): Promise<CreditCard[]> => {
-      const { data, error } = await supabase
+      // Primeiro, buscamos os cartões
+      const { data: cards, error: cardsError } = await supabase
         .from("credit_cards")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      return (data || []) as CreditCard[];
+      if (cardsError) throw cardsError;
+
+      // Para cada cartão, calculamos o valor usado baseado nas transações
+      const cardsWithUsedAmount = await Promise.all(
+        (cards || []).map(async (card) => {
+          // Buscar transações deste cartão
+          const { data: transactions, error: transactionsError } = await supabase
+            .from("transactions")
+            .select("amount, type")
+            .eq("credit_card_id", card.id)
+            .eq("type", "expense");
+
+          if (transactionsError) {
+            console.error("Error fetching transactions for card:", transactionsError);
+            return card;
+          }
+
+          // Calcular valor usado baseado nas transações
+          const calculatedUsedAmount = (transactions || []).reduce((sum, transaction) => {
+            return sum + Number(transaction.amount);
+          }, 0);
+
+          // Atualizar o used_amount no cartão se for diferente
+          if (Math.abs(calculatedUsedAmount - Number(card.used_amount)) > 0.01) {
+            const { error: updateError } = await supabase
+              .from("credit_cards")
+              .update({ used_amount: calculatedUsedAmount })
+              .eq("id", card.id);
+
+            if (updateError) {
+              console.error("Error updating card used amount:", updateError);
+            }
+          }
+
+          return {
+            ...card,
+            used_amount: calculatedUsedAmount
+          };
+        })
+      );
+
+      return cardsWithUsedAmount as CreditCard[];
     },
   });
 };

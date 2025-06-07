@@ -189,6 +189,7 @@ export type Database = {
           amount: number
           category_id: string | null
           created_at: string
+          credit_card_id: string | null
           date: string
           description: string
           id: string
@@ -201,6 +202,7 @@ export type Database = {
           amount: number
           category_id?: string | null
           created_at?: string
+          credit_card_id?: string | null
           date?: string
           description: string
           id?: string
@@ -213,6 +215,7 @@ export type Database = {
           amount?: number
           category_id?: string | null
           created_at?: string
+          credit_card_id?: string | null
           date?: string
           description?: string
           id?: string
@@ -233,6 +236,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
             referencedColumns: ["id"]
           },
         ]

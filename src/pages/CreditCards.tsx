@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,15 +62,15 @@ export default function CreditCards() {
   const totalUsed = creditCards.reduce((sum, card) => sum + card.used_amount, 0);
   const totalAvailable = totalLimit - totalUsed;
 
-  // Transações de cartão dos últimos dias
+  // Transações de cartão dos últimos dias (transações com credit_card_id)
   const recentCardTransactions = transactions
-    .filter(t => t.type === "expense" && !t.account_id)
+    .filter(t => t.type === "expense" && t.credit_card_id)
     .slice(0, 4)
     .map(t => ({
       description: t.description,
       amount: t.amount,
       date: new Date(t.date).toLocaleDateString('pt-BR'),
-      card: "Cartão"
+      card: creditCards.find(card => card.id === t.credit_card_id)?.name || "Cartão"
     }));
 
   if (isLoading) {

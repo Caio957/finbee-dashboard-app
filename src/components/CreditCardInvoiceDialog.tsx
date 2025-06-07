@@ -30,9 +30,9 @@ export function CreditCardInvoiceDialog({ card, open, onOpenChange }: CreditCard
     date: new Date().toISOString().split('T')[0],
   });
 
-  // Filtra transações do cartão (assumindo que sejam gastos sem account_id específico)
+  // Filtra transações do cartão específico
   const cardTransactions = transactions.filter(t => 
-    t.type === "expense" && !t.account_id
+    t.credit_card_id === card?.id
   ).slice(0, 10);
 
   const expenseCategories = categories.filter(cat => cat.type === "expense");
