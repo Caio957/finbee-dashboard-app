@@ -4,27 +4,38 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Calendar, CheckCircle } from "lucide-react";
-import { useBills, useCreateBill, useUpdateBillStatus } from "@/hooks/useBills";
+import { Plus, Search, Calendar, CheckCircle, Edit, Trash2, Undo2, CreditCard } from "lucide-react";
+import { useBills, useCreateBill, useUpdateBillStatus, useDeleteBill } from "@/hooks/useBills";
+import { useCreateTransaction } from "@/hooks/useTransactions";
+import { useCreditCards } from "@/hooks/useCreditCards";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { EditBillDialog } from "@/components/EditBillDialog";
+import { toast } from "sonner";
 
 export default function Bills() {
   const { data: bills = [], isLoading } = useBills();
+  const { data: creditCards = [] } = useCreditCards();
   const createBill = useCreateBill();
   const updateBillStatus = useUpdateBillStatus();
+  const deleteBill = useDeleteBill();
+  const createTransaction = useCreateTransaction();
   
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "paid" | "overdue">("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editBill, setEditBill] = useState<any>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     description: "",
     amount: 0,
     due_date: "",
     category: "Outros",
     recurring: false,
+    is_credit_card: false,
+    credit_card_id: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,6 +44,21 @@ export default function Bills() {
       ...formData,
       status: "pending" as const,
     });
+
+    // Se for fatura de cartão de crédito, criar transação
+    if (formData.is_credit_card && formData.credit_card_id) {
+      await createTransaction.mutateAsync({
+        description: formData.description,
+        amount: formData.amount,
+        type: "expense",
+        status: "pending",
+        date: new Date().toISOString().split('T')[0],
+        account_id: null,
+        category_id: null,
+        credit_card_id: formData.credit_card_id,
+      });
+    }
+
     setIsDialogOpen(false);
     setFormData({
       description: "",
@@ -40,11 +66,28 @@ export default function Bills() {
       due_date: "",
       category: "Outros",
       recurring: false,
+      is_credit_card: false,
+      credit_card_id: "",
     });
   };
 
   const handleMarkAsPaid = async (id: string) => {
     await updateBillStatus.mutateAsync({ id, status: "paid" });
+  };
+
+  const handleRevertToPending = async (id: string) => {
+    await updateBillStatus.mutateAsync({ id, status: "pending" });
+  };
+
+  const handleDeleteBill = async (id: string) => {
+    if (confirm("Tem certeza que deseja excluir esta fatura?")) {
+      await deleteBill.mutateAsync(id);
+    }
+  };
+
+  const handleEditBill = (bill: any) => {
+    setEditBill(bill);
+    setIsEditDialogOpen(true);
   };
 
   const filteredBills = bills.filter(bill => {
@@ -146,6 +189,31 @@ export default function Bills() {
                 />
                 <Label htmlFor="recurring">Recorrente</Label>
               </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="is_credit_card"
+                  checked={formData.is_credit_card}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_credit_card: checked, credit_card_id: "" })}
+                />
+                <Label htmlFor="is_credit_card">Fatura de Cartão de Crédito</Label>
+              </div>
+              {formData.is_credit_card && (
+                <div>
+                  <Label htmlFor="credit_card_id">Cartão de Crédito</Label>
+                  <Select value={formData.credit_card_id} onValueChange={(value) => setFormData({ ...formData, credit_card_id: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um cartão" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {creditCards.map((card) => (
+                        <SelectItem key={card.id} value={card.id}>
+                          {card.name} - {card.bank}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <Button type="submit" className="w-full" disabled={createBill.isPending}>
                 {createBill.isPending ? "Adicionando..." : "Adicionar Fatura"}
               </Button>
@@ -257,6 +325,7 @@ export default function Bills() {
                       <div className="flex items-center gap-2">
                         <p className="font-medium">{bill.description}</p>
                         {bill.recurring && <Badge variant="outline" className="text-xs">Recorrente</Badge>}
+                        {bill.credit_card_id && <CreditCard className="h-4 w-4 text-blue-600" />}
                       </div>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span>{bill.category}</span>
@@ -272,17 +341,45 @@ export default function Bills() {
                       </div>
                       {getStatusBadge(bill.status)}
                     </div>
-                    {bill.status === "pending" && (
+                    <div className="flex gap-2">
                       <Button 
                         size="sm" 
-                        className="flex items-center gap-1"
-                        onClick={() => handleMarkAsPaid(bill.id)}
-                        disabled={updateBillStatus.isPending}
+                        variant="outline"
+                        onClick={() => handleEditBill(bill)}
                       >
-                        <CheckCircle className="h-4 w-4" />
-                        Pagar
+                        <Edit className="h-4 w-4" />
                       </Button>
-                    )}
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleDeleteBill(bill.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                      {bill.status === "pending" && (
+                        <Button 
+                          size="sm" 
+                          className="flex items-center gap-1"
+                          onClick={() => handleMarkAsPaid(bill.id)}
+                          disabled={updateBillStatus.isPending}
+                        >
+                          <CheckCircle className="h-4 w-4" />
+                          Pagar
+                        </Button>
+                      )}
+                      {bill.status === "paid" && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="flex items-center gap-1"
+                          onClick={() => handleRevertToPending(bill.id)}
+                          disabled={updateBillStatus.isPending}
+                        >
+                          <Undo2 className="h-4 w-4" />
+                          Estornar
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))
@@ -290,6 +387,12 @@ export default function Bills() {
           </div>
         </CardContent>
       </Card>
+
+      <EditBillDialog
+        bill={editBill}
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+      />
     </div>
   );
 }
