@@ -1,23 +1,28 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Plus, CreditCard, Calendar, DollarSign } from "lucide-react";
-import { useCreditCards, useCreateCreditCard } from "@/hooks/useCreditCards";
+import { Plus, CreditCard, Calendar, DollarSign, Trash2 } from "lucide-react";
+import { useCreditCards, useCreateCreditCard, useDeleteCreditCard } from "@/hooks/useCreditCards";
+import { useAccounts } from "@/hooks/useAccounts";
 import { useTransactions } from "@/hooks/useTransactions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CreditCardInvoiceDialog } from "@/components/CreditCardInvoiceDialog";
 
 export default function CreditCards() {
   const { data: creditCards = [], isLoading } = useCreditCards();
+  const { data: accounts = [] } = useAccounts();
   const { data: transactions = [] } = useTransactions();
   const createCreditCard = useCreateCreditCard();
+  const deleteCreditCard = useDeleteCreditCard();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<any>(null);
+  const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     bank: "",
@@ -43,13 +48,21 @@ export default function CreditCards() {
     });
   };
 
+  const handleDeleteCard = async (cardId: string, usedAmount: number) => {
+    if (usedAmount > 0) {
+      toast.error("Não é possível excluir cartão com fatura pendente");
+      return;
+    }
+    await deleteCreditCard.mutateAsync(cardId);
+  };
+
   const totalLimit = creditCards.reduce((sum, card) => sum + card.card_limit, 0);
   const totalUsed = creditCards.reduce((sum, card) => sum + card.used_amount, 0);
   const totalAvailable = totalLimit - totalUsed;
 
   // Transações de cartão dos últimos dias
   const recentCardTransactions = transactions
-    .filter(t => t.type === "expense")
+    .filter(t => t.type === "expense" && !t.account_id)
     .slice(0, 4)
     .map(t => ({
       description: t.description,
@@ -93,13 +106,22 @@ export default function CreditCards() {
               </div>
               <div>
                 <Label htmlFor="bank">Banco</Label>
-                <Input
-                  id="bank"
-                  value={formData.bank}
-                  onChange={(e) => setFormData({ ...formData, bank: e.target.value })}
-                  placeholder="Ex: Nubank"
-                  required
-                />
+                <Select value={formData.bank} onValueChange={(value) => setFormData({ ...formData, bank: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um banco" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.length > 0 && accounts.map(account => (
+                      <SelectItem key={account.id} value={account.bank}>
+                        {account.bank}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="Nubank">Nubank</SelectItem>
+                    <SelectItem value="Itaú">Itaú</SelectItem>
+                    <SelectItem value="Bradesco">Bradesco</SelectItem>
+                    <SelectItem value="Santander">Santander</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="limit">Limite</Label>
@@ -203,9 +225,20 @@ export default function CreditCards() {
                     <CreditCard className="h-5 w-5" />
                     <CardTitle className="text-lg">{card.name}</CardTitle>
                   </div>
-                  <Badge variant={card.status === "active" ? "default" : "destructive"}>
-                    {card.status === "active" ? "Ativo" : "Bloqueado"}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={card.status === "active" ? "default" : "destructive"}>
+                      {card.status === "active" ? "Ativo" : "Bloqueado"}
+                    </Badge>
+                    {card.used_amount === 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteCard(card.id, card.used_amount)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
@@ -241,7 +274,15 @@ export default function CreditCards() {
                   </div>
 
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => {
+                        setSelectedCard(card);
+                        setIsInvoiceDialogOpen(true);
+                      }}
+                    >
                       Ver Fatura
                     </Button>
                     <Button variant="outline" size="sm" className="flex-1">
@@ -280,6 +321,12 @@ export default function CreditCards() {
           </div>
         </CardContent>
       </Card>
+
+      <CreditCardInvoiceDialog
+        card={selectedCard}
+        open={isInvoiceDialogOpen}
+        onOpenChange={setIsInvoiceDialogOpen}
+      />
     </div>
   );
 }

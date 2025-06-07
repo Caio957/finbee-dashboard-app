@@ -55,3 +55,50 @@ export const useCreateInvestment = () => {
     },
   });
 };
+
+export const useUpdateInvestment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...investment }: Partial<Investment> & { id: string }) => {
+      const { data, error } = await supabase
+        .from("investments")
+        .update(investment)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["investments"] });
+      toast.success("Investimento atualizado com sucesso!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao atualizar investimento");
+    },
+  });
+};
+
+export const useDeleteInvestment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("investments")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["investments"] });
+      toast.success("Investimento excluído com sucesso!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao excluir investimento");
+    },
+  });
+};

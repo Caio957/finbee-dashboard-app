@@ -56,6 +56,53 @@ export const useCreateBill = () => {
   });
 };
 
+export const useUpdateBill = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...bill }: Partial<Bill> & { id: string }) => {
+      const { data, error } = await supabase
+        .from("bills")
+        .update(bill)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bills"] });
+      toast.success("Fatura atualizada com sucesso!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao atualizar fatura");
+    },
+  });
+};
+
+export const useDeleteBill = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("bills")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bills"] });
+      toast.success("Fatura excluída com sucesso!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao excluir fatura");
+    },
+  });
+};
+
 export const useUpdateBillStatus = () => {
   const queryClient = useQueryClient();
 

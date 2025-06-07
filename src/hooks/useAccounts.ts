@@ -54,3 +54,50 @@ export const useCreateAccount = () => {
     },
   });
 };
+
+export const useUpdateAccount = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...account }: Partial<Account> & { id: string }) => {
+      const { data, error } = await supabase
+        .from("accounts")
+        .update(account)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      toast.success("Conta atualizada com sucesso!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao atualizar conta");
+    },
+  });
+};
+
+export const useDeleteAccount = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("accounts")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      toast.success("Conta excluída com sucesso!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao excluir conta");
+    },
+  });
+};
