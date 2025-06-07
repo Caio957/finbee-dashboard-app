@@ -1,10 +1,9 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Plus, CreditCard, Calendar, DollarSign, Trash2 } from "lucide-react";
+import { Plus, CreditCard, Calendar, DollarSign, Trash2, Settings } from "lucide-react";
 import { useCreditCards, useCreateCreditCard, useDeleteCreditCard } from "@/hooks/useCreditCards";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useTransactions } from "@/hooks/useTransactions";
@@ -13,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CreditCardInvoiceDialog } from "@/components/CreditCardInvoiceDialog";
+import { ConfigureCreditCardDialog } from "@/components/ConfigureCreditCardDialog";
 import { toast } from "sonner";
 
 export default function CreditCards() {
@@ -25,6 +25,7 @@ export default function CreditCards() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<any>(null);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+  const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     bank: "",
@@ -287,7 +288,16 @@ export default function CreditCards() {
                     >
                       Ver Fatura
                     </Button>
-                    <Button variant="outline" size="sm" className="flex-1">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => {
+                        setSelectedCard(card);
+                        setIsConfigDialogOpen(true);
+                      }}
+                    >
+                      <Settings className="h-4 w-4 mr-1" />
                       Configurar
                     </Button>
                   </div>
@@ -328,6 +338,12 @@ export default function CreditCards() {
         card={selectedCard}
         open={isInvoiceDialogOpen}
         onOpenChange={setIsInvoiceDialogOpen}
+      />
+
+      <ConfigureCreditCardDialog
+        card={selectedCard}
+        open={isConfigDialogOpen}
+        onOpenChange={setIsConfigDialogOpen}
       />
     </div>
   );

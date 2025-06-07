@@ -4,18 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Plus, TrendingUp, TrendingDown, DollarSign, PieChart } from "lucide-react";
-import { useInvestments, useCreateInvestment } from "@/hooks/useInvestments";
+import { Plus, TrendingUp, TrendingDown, DollarSign, PieChart, Edit } from "lucide-react";
+import { useInvestments, useCreateInvestment, useUpdateInvestment } from "@/hooks/useInvestments";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "sonner";
 
 export default function Investments() {
   const { data: investments = [], isLoading } = useInvestments();
   const createInvestment = useCreateInvestment();
+  const updateInvestment = useUpdateInvestment();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedInvestment, setSelectedInvestment] = useState<any>(null);
   const [formData, setFormData] = useState({
     name: "",
     type: "fixed" as "stock" | "fund" | "crypto" | "fixed",
@@ -26,7 +30,27 @@ export default function Investments() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await createInvestment.mutateAsync(formData);
+    
+    // Buscar cotação automática para ações brasileiras
+    let finalData = { ...formData };
+    if (formData.type === "stock" && formData.name.match(/^[A-Z]{4}\d{1,2}$/)) {
+      try {
+        const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${formData.name}.SA`);
+        const data = await response.json();
+        
+        if (data.chart?.result?.[0]?.meta?.regularMarketPrice) {
+          const currentPrice = data.chart.result[0].meta.regularMarketPrice;
+          if (formData.quantity) {
+            finalData.current_value = currentPrice * formData.quantity;
+          }
+          toast.success(`Cotação atual: R$ ${currentPrice.toFixed(2)}`);
+        }
+      } catch (error) {
+        console.log("Não foi possível buscar cotação automática");
+      }
+    }
+
+    await createInvestment.mutateAsync(finalData);
     setIsDialogOpen(false);
     setFormData({
       name: "",
@@ -35,6 +59,54 @@ export default function Investments() {
       current_value: 0,
       quantity: null,
     });
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedInvestment) return;
+
+    // Para aporte adicional, somar ao valor existente
+    const newInvestedAmount = formData.invested_amount + selectedInvestment.invested_amount;
+    const newCurrentValue = formData.current_value + selectedInvestment.current_value;
+    const newQuantity = formData.quantity ? 
+      (selectedInvestment.quantity || 0) + formData.quantity : 
+      selectedInvestment.quantity;
+
+    await updateInvestment.mutateAsync({
+      id: selectedInvestment.id,
+      invested_amount: newInvestedAmount,
+      current_value: newCurrentValue,
+      quantity: newQuantity,
+    });
+
+    setIsEditDialogOpen(false);
+    setSelectedInvestment(null);
+    setFormData({
+      name: "",
+      type: "fixed",
+      invested_amount: 0,
+      current_value: 0,
+      quantity: null,
+    });
+  };
+
+  const handleQuickAction = (action: string) => {
+    switch (action) {
+      case "aplicar":
+        setIsDialogOpen(true);
+        break;
+      case "resgatar":
+        toast.info("Funcionalidade de resgate em desenvolvimento");
+        break;
+      case "rebalancear":
+        toast.info("Análise de rebalanceamento em desenvolvimento");
+        break;
+      case "aporte":
+        setIsDialogOpen(true);
+        break;
+      default:
+        break;
+    }
   };
 
   const totalInvested = investments.reduce((sum, inv) => sum + inv.invested_amount, 0);
@@ -91,7 +163,7 @@ export default function Investments() {
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Ex: ITSA4"
+                  placeholder="Ex: ITSA4, TESOURO SELIC 2029"
                   required
                 />
               </div>
@@ -265,14 +337,26 @@ export default function Investments() {
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-lg font-semibold">
-                        R$ {investment.current_value.toLocaleString('pt-BR')}
+                    <div className="flex items-center gap-2">
+                      <div className="text-right">
+                        <div className="text-lg font-semibold">
+                          R$ {investment.current_value.toLocaleString('pt-BR')}
+                        </div>
+                        <div className={`text-sm ${profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {profitLoss >= 0 ? '+' : ''}R$ {profitLoss.toLocaleString('pt-BR')} 
+                          ({percentage >= 0 ? '+' : ''}{percentage.toFixed(2)}%)
+                        </div>
                       </div>
-                      <div className={`text-sm ${profitLoss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {profitLoss >= 0 ? '+' : ''}R$ {profitLoss.toLocaleString('pt-BR')} 
-                        ({percentage >= 0 ? '+' : ''}{percentage.toFixed(2)}%)
-                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedInvestment(investment);
+                          setIsEditDialogOpen(true);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 );
@@ -289,25 +373,95 @@ export default function Investments() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-            <Button variant="outline" className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2"
+              onClick={() => handleQuickAction("aplicar")}
+            >
               <DollarSign className="h-4 w-4" />
               Aplicar Dinheiro
             </Button>
-            <Button variant="outline" className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2"
+              onClick={() => handleQuickAction("resgatar")}
+            >
               <TrendingUp className="h-4 w-4" />
               Resgatar
             </Button>
-            <Button variant="outline" className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2"
+              onClick={() => handleQuickAction("rebalancear")}
+            >
               <PieChart className="h-4 w-4" />
               Rebalancear
             </Button>
-            <Button variant="outline" className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2"
+              onClick={() => handleQuickAction("aporte")}
+            >
               <Plus className="h-4 w-4" />
               Novo Aporte
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Dialog para editar/fazer aporte */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Fazer Aporte - {selectedInvestment?.name}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="edit_invested_amount">Valor do Aporte</Label>
+              <Input
+                id="edit_invested_amount"
+                type="number"
+                step="0.01"
+                value={formData.invested_amount}
+                onChange={(e) => setFormData({ ...formData, invested_amount: Number(e.target.value) })}
+                placeholder="1000.00"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_current_value">Valor Atual do Aporte</Label>
+              <Input
+                id="edit_current_value"
+                type="number"
+                step="0.01"
+                value={formData.current_value}
+                onChange={(e) => setFormData({ ...formData, current_value: Number(e.target.value) })}
+                placeholder="1000.00"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit_quantity">Quantidade Adicional (opcional)</Label>
+              <Input
+                id="edit_quantity"
+                type="number"
+                step="0.0001"
+                value={formData.quantity || ""}
+                onChange={(e) => setFormData({ ...formData, quantity: e.target.value ? Number(e.target.value) : null })}
+                placeholder="50"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={updateInvestment.isPending}>
+                {updateInvestment.isPending ? "Salvando..." : "Fazer Aporte"}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
