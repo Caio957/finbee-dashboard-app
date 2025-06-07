@@ -237,6 +237,51 @@ export type Database = {
           },
         ]
       }
+      user_settings: {
+        Row: {
+          animations_enabled: boolean | null
+          created_at: string
+          currency: string | null
+          date_format: string | null
+          id: string
+          notifications_bills: boolean | null
+          notifications_budget: boolean | null
+          notifications_investments: boolean | null
+          notifications_monthly: boolean | null
+          theme: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          animations_enabled?: boolean | null
+          created_at?: string
+          currency?: string | null
+          date_format?: string | null
+          id?: string
+          notifications_bills?: boolean | null
+          notifications_budget?: boolean | null
+          notifications_investments?: boolean | null
+          notifications_monthly?: boolean | null
+          theme?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          animations_enabled?: boolean | null
+          created_at?: string
+          currency?: string | null
+          date_format?: string | null
+          id?: string
+          notifications_bills?: boolean | null
+          notifications_budget?: boolean | null
+          notifications_investments?: boolean | null
+          notifications_monthly?: boolean | null
+          theme?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

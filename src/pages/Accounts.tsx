@@ -7,15 +7,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Wallet, CreditCard, PiggyBank } from "lucide-react";
-import { useAccounts, useCreateAccount } from "@/hooks/useAccounts";
+import { Plus, Wallet, CreditCard, PiggyBank, Receipt, Edit } from "lucide-react";
+import { useAccounts, useCreateAccount, type Account } from "@/hooks/useAccounts";
 import { useAuth } from "@/hooks/useAuth";
+import { AccountStatementDialog } from "@/components/AccountStatementDialog";
 
 export default function Accounts() {
   const { data: accounts = [], isLoading } = useAccounts();
   const createAccount = useCreateAccount();
   const { signOut } = useAuth();
+  
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+  const [isStatementOpen, setIsStatementOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  
   const [formData, setFormData] = useState({
     name: "",
     type: "checking" as "checking" | "savings" | "credit",
@@ -28,6 +34,22 @@ export default function Accounts() {
     await createAccount.mutateAsync(formData);
     setIsDialogOpen(false);
     setFormData({ name: "", type: "checking", balance: 0, bank: "" });
+  };
+
+  const handleShowStatement = (account: Account) => {
+    setSelectedAccount(account);
+    setIsStatementOpen(true);
+  };
+
+  const handleEdit = (account: Account) => {
+    setSelectedAccount(account);
+    setFormData({
+      name: account.name,
+      type: account.type,
+      balance: account.balance,
+      bank: account.bank,
+    });
+    setIsEditOpen(true);
   };
 
   const getIcon = (type: string) => {
@@ -173,10 +195,22 @@ export default function Accounts() {
                 </div>
                 <p className="text-sm text-muted-foreground">{account.bank}</p>
                 <div className="flex gap-2 mt-4">
-                  <Button variant="outline" size="sm" className="flex-1">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1 flex items-center gap-1"
+                    onClick={() => handleShowStatement(account)}
+                  >
+                    <Receipt className="h-4 w-4" />
                     Extrato
                   </Button>
-                  <Button variant="outline" size="sm" className="flex-1">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1 flex items-center gap-1"
+                    onClick={() => handleEdit(account)}
+                  >
+                    <Edit className="h-4 w-4" />
                     Editar
                   </Button>
                 </div>
@@ -193,6 +227,46 @@ export default function Accounts() {
           </CardContent>
         </Card>
       )}
+
+      <AccountStatementDialog
+        account={selectedAccount}
+        open={isStatementOpen}
+        onOpenChange={setIsStatementOpen}
+      />
+
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Conta</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-name">Nome da Conta</Label>
+              <Input
+                id="edit-name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-bank">Banco</Label>
+              <Input
+                id="edit-bank"
+                value={formData.bank}
+                onChange={(e) => setFormData({ ...formData, bank: e.target.value })}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button className="flex-1">
+                Salvar Alterações
+              </Button>
+              <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
