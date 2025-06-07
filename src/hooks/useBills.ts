@@ -11,6 +11,7 @@ export type Bill = {
   status: "pending" | "paid" | "overdue";
   category: string;
   recurring: boolean;
+  credit_card_id?: string | null;
   created_at: string;
 };
 
