@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -58,6 +59,14 @@ export const useCreditCards = () => {
             }
           }
 
+          // Se o valor usado for maior que R$ 0,01, criar/atualizar fatura
+          if (calculatedUsedAmount > 0.01) {
+            await createOrUpdateCreditCardBill(card, calculatedUsedAmount);
+          } else {
+            // Se não há valor, verificar se existe fatura para deletar
+            await deleteCreditCardBillIfExists(card.id);
+          }
+
           return {
             ...card,
             used_amount: calculatedUsedAmount
@@ -68,6 +77,76 @@ export const useCreditCards = () => {
       return cardsWithUsedAmount as CreditCard[];
     },
   });
+};
+
+const createOrUpdateCreditCardBill = async (card: any, amount: number) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  // Verificar se já existe uma fatura para este cartão
+  const { data: existingBill } = await supabase
+    .from("bills")
+    .select("*")
+    .eq("credit_card_id", card.id)
+    .eq("status", "pending")
+    .single();
+
+  // Calcular a data de vencimento (próximo dia de vencimento)
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  let dueDate = new Date(currentYear, currentMonth, card.due_date);
+  
+  // Se já passou do dia de vencimento neste mês, usar o próximo mês
+  if (now.getDate() > card.due_date) {
+    dueDate = new Date(currentYear, currentMonth + 1, card.due_date);
+  }
+
+  if (existingBill) {
+    // Atualizar fatura existente
+    const { error } = await supabase
+      .from("bills")
+      .update({
+        amount: amount,
+        due_date: dueDate.toISOString().split('T')[0]
+      })
+      .eq("id", existingBill.id);
+
+    if (error) {
+      console.error("Error updating credit card bill:", error);
+    }
+  } else {
+    // Criar nova fatura
+    const { error } = await supabase
+      .from("bills")
+      .insert({
+        description: `Fatura ${card.name} - ${card.bank}`,
+        amount: amount,
+        due_date: dueDate.toISOString().split('T')[0],
+        status: "pending",
+        category: "Cartão de Crédito",
+        recurring: false,
+        credit_card_id: card.id,
+        user_id: user.id
+      });
+
+    if (error) {
+      console.error("Error creating credit card bill:", error);
+    }
+  }
+};
+
+const deleteCreditCardBillIfExists = async (cardId: string) => {
+  // Deletar fatura se existir e não tiver valor
+  const { error } = await supabase
+    .from("bills")
+    .delete()
+    .eq("credit_card_id", cardId)
+    .eq("status", "pending");
+
+  if (error) {
+    console.error("Error deleting credit card bill:", error);
+  }
 };
 
 export const useCreateCreditCard = () => {
@@ -89,6 +168,7 @@ export const useCreateCreditCard = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
+      queryClient.invalidateQueries({ queryKey: ["bills"] });
       toast.success("Cartão adicionado com sucesso!");
     },
     onError: (error: any) => {
@@ -114,6 +194,7 @@ export const useUpdateCreditCard = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
+      queryClient.invalidateQueries({ queryKey: ["bills"] });
       toast.success("Cartão atualizado com sucesso!");
     },
     onError: (error: any) => {
@@ -127,6 +208,13 @@ export const useDeleteCreditCard = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
+      // Primeiro, deletar faturas relacionadas ao cartão
+      await supabase
+        .from("bills")
+        .delete()
+        .eq("credit_card_id", id);
+
+      // Depois, deletar o cartão
       const { error } = await supabase
         .from("credit_cards")
         .delete()
@@ -136,6 +224,7 @@ export const useDeleteCreditCard = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
+      queryClient.invalidateQueries({ queryKey: ["bills"] });
       toast.success("Cartão excluído com sucesso!");
     },
     onError: (error: any) => {

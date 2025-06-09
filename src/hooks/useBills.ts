@@ -109,6 +109,13 @@ export const useUpdateBillStatus = () => {
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      // Buscar a fatura para verificar se é de cartão de crédito
+      const { data: bill } = await supabase
+        .from("bills")
+        .select("credit_card_id")
+        .eq("id", id)
+        .single();
+
       const { data, error } = await supabase
         .from("bills")
         .update({ status })
@@ -117,6 +124,18 @@ export const useUpdateBillStatus = () => {
         .single();
 
       if (error) throw error;
+
+      // Se a fatura foi paga e é de cartão de crédito, zerar o used_amount do cartão
+      if (status === "paid" && bill?.credit_card_id) {
+        await supabase
+          .from("credit_cards")
+          .update({ used_amount: 0 })
+          .eq("id", bill.credit_card_id);
+
+        // Invalidar queries dos cartões também
+        queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
+      }
+
       return data;
     },
     onSuccess: () => {
