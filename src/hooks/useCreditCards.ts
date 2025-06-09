@@ -20,25 +20,19 @@ const createOrUpdateCreditCardBill = async (card: CreditCard, amount: number) =>
 
   console.log(`Processing credit card bill for card ${card.name} with amount ${amount}`);
 
-  // Verificar se já existe uma fatura pendente para este cartão no mês atual
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
-  
-  // Calcular data de início e fim do período de faturamento
-  const startOfMonth = new Date(currentYear, currentMonth, 1);
-  const endOfMonth = new Date(currentYear, currentMonth + 1, 0);
-
+  // Verificar se já existe uma fatura pendente para este cartão
   const { data: existingBill } = await supabase
     .from("bills")
     .select("*")
     .eq("credit_card_id", card.id)
     .eq("status", "pending")
-    .gte("due_date", startOfMonth.toISOString().split('T')[0])
-    .lte("due_date", endOfMonth.toISOString().split('T')[0])
     .maybeSingle();
 
   // Calcular a data de vencimento (próximo dia de vencimento)
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  
   let dueDate = new Date(currentYear, currentMonth, card.due_date);
   
   // Se já passou do dia de vencimento neste mês, usar o próximo mês
@@ -47,10 +41,12 @@ const createOrUpdateCreditCardBill = async (card: CreditCard, amount: number) =>
   }
 
   if (existingBill) {
-    console.log(`Updating existing bill for card ${card.name} from ${existingBill.amount} to ${amount}`);
+    console.log(`Found existing bill for card ${card.name}. Current amount: ${existingBill.amount}, New amount: ${amount}`);
     
-    // Só atualizar se o valor for diferente
+    // Se o valor mudou significativamente, atualizar
     if (Math.abs(existingBill.amount - amount) > 0.01) {
+      console.log(`Updating existing bill for card ${card.name} from ${existingBill.amount} to ${amount}`);
+      
       const { error } = await supabase
         .from("bills")
         .update({
@@ -65,6 +61,7 @@ const createOrUpdateCreditCardBill = async (card: CreditCard, amount: number) =>
     }
   } else if (amount > 0.01) {
     console.log(`Creating new bill for card ${card.name} with amount ${amount}`);
+    
     // Só criar nova fatura se não existir e o valor for maior que R$ 0,01
     const { error } = await supabase
       .from("bills")
@@ -149,6 +146,8 @@ export const useCreditCards = () => {
 
           // Atualizar o used_amount no cartão se for diferente
           if (Math.abs(calculatedUsedAmount - Number(card.used_amount)) > 0.01) {
+            console.log(`Updating card ${card.name} used_amount from ${card.used_amount} to ${calculatedUsedAmount}`);
+            
             const { error: updateError } = await supabase
               .from("credit_cards")
               .update({ used_amount: calculatedUsedAmount })
@@ -175,9 +174,10 @@ export const useCreditCards = () => {
 
       return cardsWithUsedAmount as CreditCard[];
     },
-    // Diminuir a frequência de revalidação para evitar chamadas excessivas
-    staleTime: 60000, // 1 minuto
+    // Configurações para evitar chamadas excessivas
+    staleTime: 30000, // 30 segundos
     refetchInterval: false, // Desabilitar refetch automático
+    refetchOnWindowFocus: false, // Não refazer ao focar na janela
   });
 };
 

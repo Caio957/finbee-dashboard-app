@@ -87,6 +87,29 @@ export const useDeleteBill = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
+      console.log(`Deleting bill: ${id}`);
+      
+      // Primeiro, buscar a fatura para verificar se é de cartão de crédito
+      const { data: bill, error: fetchError } = await supabase
+        .from("bills")
+        .select("credit_card_id, amount")
+        .eq("id", id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Deletar transações relacionadas à fatura se existirem
+      if (bill?.credit_card_id) {
+        console.log(`Deleting transactions related to bill ${id} for credit card ${bill.credit_card_id}`);
+        
+        await supabase
+          .from("transactions")
+          .delete()
+          .eq("credit_card_id", bill.credit_card_id)
+          .eq("description", `Pagamento: Fatura ${bill.credit_card_id}`);
+      }
+
+      // Deletar a fatura
       const { error } = await supabase
         .from("bills")
         .delete()
@@ -96,6 +119,9 @@ export const useDeleteBill = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bills"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
       toast.success("Fatura excluída com sucesso!");
     },
     onError: (error: any) => {
@@ -109,15 +135,44 @@ export const useUpdateBillStatus = () => {
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      // Buscar a fatura para verificar se é de cartão de crédito
+      console.log(`Updating bill ${id} status to ${status}`);
+      
+      // Buscar a fatura para verificar detalhes
       const { data: bill, error: fetchError } = await supabase
         .from("bills")
-        .select("credit_card_id")
+        .select("credit_card_id, amount, description")
         .eq("id", id)
         .single();
 
       if (fetchError) throw fetchError;
 
+      // Se estamos estornando uma fatura (mudando de paid para pending)
+      if (status === "pending" && bill) {
+        console.log(`Reverting bill payment for bill ${id}`);
+        
+        // Deletar transações de pagamento relacionadas
+        if (bill.credit_card_id) {
+          const paymentDescription = `Pagamento fatura ${bill.description}`;
+          console.log(`Deleting payment transactions with description: ${paymentDescription}`);
+          
+          await supabase
+            .from("transactions")
+            .delete()
+            .eq("credit_card_id", bill.credit_card_id)
+            .ilike("description", `%${paymentDescription}%`);
+        } else {
+          // Para faturas não de cartão de crédito
+          const paymentDescription = `Pagamento: ${bill.description}`;
+          console.log(`Deleting payment transactions with description: ${paymentDescription}`);
+          
+          await supabase
+            .from("transactions")
+            .delete()
+            .ilike("description", `%${paymentDescription}%`);
+        }
+      }
+
+      // Atualizar status da fatura
       const { data, error } = await supabase
         .from("bills")
         .update({ status })
@@ -126,25 +181,21 @@ export const useUpdateBillStatus = () => {
         .single();
 
       if (error) throw error;
-
-      // Se a fatura foi paga e é de cartão de crédito, zerar o used_amount do cartão
-      if (status === "paid" && bill?.credit_card_id) {
-        await supabase
-          .from("credit_cards")
-          .update({ used_amount: 0 })
-          .eq("id", bill.credit_card_id);
-
-        // Invalidar queries dos cartões também
-        queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
-      }
-
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bills"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
+      
+      // Forçar refetch das contas para garantir atualização
+      queryClient.refetchQueries({ queryKey: ["accounts"] });
+      
       toast.success("Status da fatura atualizado!");
     },
     onError: (error: any) => {
+      console.error("Error updating bill status:", error);
       toast.error(error.message || "Erro ao atualizar fatura");
     },
   });

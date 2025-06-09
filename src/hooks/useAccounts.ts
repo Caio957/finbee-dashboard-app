@@ -34,7 +34,7 @@ export const useAccounts = () => {
           // Buscar transações desta conta que estão completas
           const { data: transactions, error: transactionsError } = await supabase
             .from("transactions")
-            .select("amount, type, status")
+            .select("amount, type, status, description")
             .eq("account_id", account.id)
             .eq("status", "completed");
 
@@ -43,25 +43,34 @@ export const useAccounts = () => {
             return account;
           }
 
+          console.log(`Account ${account.name} has ${transactions?.length || 0} completed transactions`);
+          
           // Calcular saldo baseado nas transações completas
           const calculatedBalance = (transactions || []).reduce((sum, transaction) => {
+            const amount = Number(transaction.amount);
+            console.log(`Transaction: ${transaction.description}, Type: ${transaction.type}, Amount: ${amount}`);
+            
             if (transaction.type === "income") {
-              return sum + Number(transaction.amount);
+              return sum + amount;
             } else {
-              return sum - Number(transaction.amount);
+              return sum - amount;
             }
           }, 0);
 
           console.log(`Account ${account.name}: calculated balance = ${calculatedBalance}, stored balance = ${account.balance}`);
 
           // Sempre atualizar o saldo no banco para manter consistência
-          const { error: updateError } = await supabase
-            .from("accounts")
-            .update({ balance: calculatedBalance })
-            .eq("id", account.id);
+          if (Math.abs(calculatedBalance - Number(account.balance)) > 0.01) {
+            console.log(`Updating account ${account.name} balance from ${account.balance} to ${calculatedBalance}`);
+            
+            const { error: updateError } = await supabase
+              .from("accounts")
+              .update({ balance: calculatedBalance })
+              .eq("id", account.id);
 
-          if (updateError) {
-            console.error("Error updating account balance:", updateError);
+            if (updateError) {
+              console.error("Error updating account balance:", updateError);
+            }
           }
 
           return {
@@ -73,8 +82,9 @@ export const useAccounts = () => {
 
       return accountsWithBalance as Account[];
     },
-    // Revalidar a cada 30 segundos para manter dados atualizados
-    staleTime: 30000,
+    // Configurações para garantir dados atualizados
+    staleTime: 5000, // 5 segundos
+    refetchOnWindowFocus: true, // Refazer ao focar na janela
   });
 };
 

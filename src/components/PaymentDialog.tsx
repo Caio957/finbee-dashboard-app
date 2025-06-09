@@ -66,6 +66,8 @@ export function PaymentDialog({ bill, open, onOpenChange }: PaymentDialogProps) 
     setIsProcessing(true);
 
     try {
+      console.log(`Processing payment for bill ${bill.id}, amount: ${bill.amount}, account: ${selectedAccountId}`);
+      
       // Criar transação de débito na conta
       await createTransaction.mutateAsync({
         description: `Pagamento: ${bill.description}`,
@@ -84,6 +86,7 @@ export function PaymentDialog({ bill, open, onOpenChange }: PaymentDialogProps) 
         status: "paid" 
       });
 
+      console.log("Payment processed successfully");
       toast.success("Pagamento realizado com sucesso!");
       onOpenChange(false);
       setSelectedAccountId("");
