@@ -34,7 +34,7 @@ export function EditTransactionDialog({ transaction, open, onOpenChange }: EditT
     if (transaction) {
       setFormData({
         description: transaction.description,
-        amount: transaction.amount || "",
+        amount: transaction.amount ? transaction.amount.toString() : "",
         type: transaction.type,
         account_id: transaction.account_id || "",
         category_id: transaction.category_id || "",
