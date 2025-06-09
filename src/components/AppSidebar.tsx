@@ -1,4 +1,3 @@
-
 import { 
   Home, 
   Wallet, 
@@ -8,7 +7,8 @@ import {
   FileText,
   TrendingUp,
   Calendar,
-  Tag
+  Tag,
+  DollarSign
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -50,6 +50,11 @@ const menuItems = [
     title: "Faturas a Pagar",
     url: "/bills",
     icon: Calendar,
+  },
+  {
+    title: "Salário",
+    url: "/salary",
+    icon: DollarSign,
   },
   {
     title: "Investimentos",

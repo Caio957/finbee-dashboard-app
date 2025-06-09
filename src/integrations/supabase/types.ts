@@ -183,6 +183,53 @@ export type Database = {
         }
         Relationships: []
       }
+      salaries: {
+        Row: {
+          account_id: string
+          created_at: string
+          description: string
+          gross_amount: number
+          id: string
+          is_active: boolean
+          net_amount: number
+          payment_day: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          description?: string
+          gross_amount: number
+          id?: string
+          is_active?: boolean
+          net_amount: number
+          payment_day: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          description?: string
+          gross_amount?: number
+          id?: string
+          is_active?: boolean
+          net_amount?: number
+          payment_day?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "salaries_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           account_id: string | null
