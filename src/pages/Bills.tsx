@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Calendar, CheckCircle, Edit, Trash2, Undo2, CreditCard, Broom } from "lucide-react";
+import { Plus, Search, Calendar, CheckCircle, Edit, Trash2, Undo2, CreditCard, Sparkles} from "lucide-react";
 import { useBills, useCreateBill, useUpdateBillStatus, useDeleteBill } from "@/hooks/useBills";
 import { useCreateTransaction } from "@/hooks/useTransactions";
 import { useCreditCards } from "@/hooks/useCreditCards";
@@ -138,7 +138,7 @@ export default function Bills() {
             disabled={billCleanup.isPending}
             className="flex items-center gap-2"
           >
-            <Broom className="h-4 w-4" />
+            <Sparkles className="h-4 w-4" />
             {billCleanup.isPending ? "Limpando..." : "Limpar Duplicatas"}
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
