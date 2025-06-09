@@ -15,73 +15,11 @@ export type CreditCard = {
   created_at: string;
 };
 
-export const useCreditCards = () => {
-  return useQuery({
-    queryKey: ["credit_cards"],
-    queryFn: async (): Promise<CreditCard[]> => {
-      // Primeiro, buscamos os cartões
-      const { data: cards, error: cardsError } = await supabase
-        .from("credit_cards")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (cardsError) throw cardsError;
-
-      // Para cada cartão, calculamos o valor usado baseado nas transações
-      const cardsWithUsedAmount = await Promise.all(
-        (cards || []).map(async (card) => {
-          // Buscar transações deste cartão
-          const { data: transactions, error: transactionsError } = await supabase
-            .from("transactions")
-            .select("amount, type")
-            .eq("credit_card_id", card.id)
-            .eq("type", "expense");
-
-          if (transactionsError) {
-            console.error("Error fetching transactions for card:", transactionsError);
-            return card;
-          }
-
-          // Calcular valor usado baseado nas transações
-          const calculatedUsedAmount = (transactions || []).reduce((sum, transaction) => {
-            return sum + Number(transaction.amount);
-          }, 0);
-
-          // Atualizar o used_amount no cartão se for diferente
-          if (Math.abs(calculatedUsedAmount - Number(card.used_amount)) > 0.01) {
-            const { error: updateError } = await supabase
-              .from("credit_cards")
-              .update({ used_amount: calculatedUsedAmount })
-              .eq("id", card.id);
-
-            if (updateError) {
-              console.error("Error updating card used amount:", updateError);
-            }
-          }
-
-          // Se o valor usado for maior que R$ 0,01, criar/atualizar fatura
-          if (calculatedUsedAmount > 0.01) {
-            await createOrUpdateCreditCardBill(card, calculatedUsedAmount);
-          } else {
-            // Se não há valor, verificar se existe fatura para deletar
-            await deleteCreditCardBillIfExists(card.id);
-          }
-
-          return {
-            ...card,
-            used_amount: calculatedUsedAmount
-          };
-        })
-      );
-
-      return cardsWithUsedAmount as CreditCard[];
-    },
-  });
-};
-
-const createOrUpdateCreditCardBill = async (card: any, amount: number) => {
+const createOrUpdateCreditCardBill = async (card: CreditCard, amount: number) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
+
+  console.log(`Processing credit card bill for card ${card.name} with amount ${amount}`);
 
   // Verificar se já existe uma fatura para este cartão
   const { data: existingBill } = await supabase
@@ -103,6 +41,7 @@ const createOrUpdateCreditCardBill = async (card: any, amount: number) => {
   }
 
   if (existingBill) {
+    console.log(`Updating existing bill for card ${card.name}`);
     // Atualizar fatura existente
     const { error } = await supabase
       .from("bills")
@@ -116,6 +55,7 @@ const createOrUpdateCreditCardBill = async (card: any, amount: number) => {
       console.error("Error updating credit card bill:", error);
     }
   } else {
+    console.log(`Creating new bill for card ${card.name}`);
     // Criar nova fatura
     const { error } = await supabase
       .from("bills")
@@ -137,6 +77,7 @@ const createOrUpdateCreditCardBill = async (card: any, amount: number) => {
 };
 
 const deleteCreditCardBillIfExists = async (cardId: string) => {
+  console.log(`Deleting bill for card ${cardId} if exists`);
   // Deletar fatura se existir e não tiver valor
   const { error } = await supabase
     .from("bills")
@@ -147,6 +88,76 @@ const deleteCreditCardBillIfExists = async (cardId: string) => {
   if (error) {
     console.error("Error deleting credit card bill:", error);
   }
+};
+
+export const useCreditCards = () => {
+  return useQuery({
+    queryKey: ["credit_cards"],
+    queryFn: async (): Promise<CreditCard[]> => {
+      console.log("Fetching credit cards...");
+      
+      // Primeiro, buscamos os cartões
+      const { data: cards, error: cardsError } = await supabase
+        .from("credit_cards")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (cardsError) throw cardsError;
+
+      // Para cada cartão, calculamos o valor usado baseado nas transações
+      const cardsWithUsedAmount = await Promise.all(
+        (cards || []).map(async (card) => {
+          console.log(`Processing card: ${card.name}`);
+          
+          // Buscar transações deste cartão
+          const { data: transactions, error: transactionsError } = await supabase
+            .from("transactions")
+            .select("amount, type")
+            .eq("credit_card_id", card.id)
+            .eq("type", "expense");
+
+          if (transactionsError) {
+            console.error("Error fetching transactions for card:", transactionsError);
+            return card;
+          }
+
+          // Calcular valor usado baseado nas transações
+          const calculatedUsedAmount = (transactions || []).reduce((sum, transaction) => {
+            return sum + Number(transaction.amount);
+          }, 0);
+
+          console.log(`Card ${card.name} calculated used amount: ${calculatedUsedAmount}`);
+
+          // Atualizar o used_amount no cartão se for diferente
+          if (Math.abs(calculatedUsedAmount - Number(card.used_amount)) > 0.01) {
+            const { error: updateError } = await supabase
+              .from("credit_cards")
+              .update({ used_amount: calculatedUsedAmount })
+              .eq("id", card.id);
+
+            if (updateError) {
+              console.error("Error updating card used amount:", updateError);
+            }
+          }
+
+          // Se o valor usado for maior que R$ 0,01, criar/atualizar fatura
+          if (calculatedUsedAmount > 0.01) {
+            await createOrUpdateCreditCardBill(card as CreditCard, calculatedUsedAmount);
+          } else {
+            // Se não há valor, verificar se existe fatura para deletar
+            await deleteCreditCardBillIfExists(card.id);
+          }
+
+          return {
+            ...card,
+            used_amount: calculatedUsedAmount
+          };
+        })
+      );
+
+      return cardsWithUsedAmount as CreditCard[];
+    },
+  });
 };
 
 export const useCreateCreditCard = () => {

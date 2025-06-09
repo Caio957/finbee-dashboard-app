@@ -110,11 +110,13 @@ export const useUpdateBillStatus = () => {
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       // Buscar a fatura para verificar se é de cartão de crédito
-      const { data: bill } = await supabase
+      const { data: bill, error: fetchError } = await supabase
         .from("bills")
         .select("credit_card_id")
         .eq("id", id)
         .single();
+
+      if (fetchError) throw fetchError;
 
       const { data, error } = await supabase
         .from("bills")

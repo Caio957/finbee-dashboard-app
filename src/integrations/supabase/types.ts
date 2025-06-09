@@ -47,6 +47,7 @@ export type Database = {
           amount: number
           category: string | null
           created_at: string
+          credit_card_id: string | null
           description: string
           due_date: string
           id: string
@@ -58,6 +59,7 @@ export type Database = {
           amount: number
           category?: string | null
           created_at?: string
+          credit_card_id?: string | null
           description: string
           due_date: string
           id?: string
@@ -69,6 +71,7 @@ export type Database = {
           amount?: number
           category?: string | null
           created_at?: string
+          credit_card_id?: string | null
           description?: string
           due_date?: string
           id?: string
@@ -76,7 +79,15 @@ export type Database = {
           status?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "bills_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       categories: {
         Row: {
