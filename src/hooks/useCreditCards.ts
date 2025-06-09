@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -21,18 +20,25 @@ const createOrUpdateCreditCardBill = async (card: CreditCard, amount: number) =>
 
   console.log(`Processing credit card bill for card ${card.name} with amount ${amount}`);
 
-  // Verificar se já existe uma fatura para este cartão
+  // Verificar se já existe uma fatura pendente para este cartão no mês atual
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  
+  // Calcular data de início e fim do período de faturamento
+  const startOfMonth = new Date(currentYear, currentMonth, 1);
+  const endOfMonth = new Date(currentYear, currentMonth + 1, 0);
+
   const { data: existingBill } = await supabase
     .from("bills")
     .select("*")
     .eq("credit_card_id", card.id)
     .eq("status", "pending")
-    .single();
+    .gte("due_date", startOfMonth.toISOString().split('T')[0])
+    .lte("due_date", endOfMonth.toISOString().split('T')[0])
+    .maybeSingle();
 
   // Calcular a data de vencimento (próximo dia de vencimento)
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
   let dueDate = new Date(currentYear, currentMonth, card.due_date);
   
   // Se já passou do dia de vencimento neste mês, usar o próximo mês
@@ -41,22 +47,25 @@ const createOrUpdateCreditCardBill = async (card: CreditCard, amount: number) =>
   }
 
   if (existingBill) {
-    console.log(`Updating existing bill for card ${card.name}`);
-    // Atualizar fatura existente
-    const { error } = await supabase
-      .from("bills")
-      .update({
-        amount: amount,
-        due_date: dueDate.toISOString().split('T')[0]
-      })
-      .eq("id", existingBill.id);
+    console.log(`Updating existing bill for card ${card.name} from ${existingBill.amount} to ${amount}`);
+    
+    // Só atualizar se o valor for diferente
+    if (Math.abs(existingBill.amount - amount) > 0.01) {
+      const { error } = await supabase
+        .from("bills")
+        .update({
+          amount: amount,
+          due_date: dueDate.toISOString().split('T')[0]
+        })
+        .eq("id", existingBill.id);
 
-    if (error) {
-      console.error("Error updating credit card bill:", error);
+      if (error) {
+        console.error("Error updating credit card bill:", error);
+      }
     }
-  } else {
-    console.log(`Creating new bill for card ${card.name}`);
-    // Criar nova fatura
+  } else if (amount > 0.01) {
+    console.log(`Creating new bill for card ${card.name} with amount ${amount}`);
+    // Só criar nova fatura se não existir e o valor for maior que R$ 0,01
     const { error } = await supabase
       .from("bills")
       .insert({
@@ -77,16 +86,26 @@ const createOrUpdateCreditCardBill = async (card: CreditCard, amount: number) =>
 };
 
 const deleteCreditCardBillIfExists = async (cardId: string) => {
-  console.log(`Deleting bill for card ${cardId} if exists`);
-  // Deletar fatura se existir e não tiver valor
-  const { error } = await supabase
+  console.log(`Checking if should delete bill for card ${cardId}`);
+  
+  // Verificar se existe fatura pendente para este cartão
+  const { data: existingBill } = await supabase
     .from("bills")
-    .delete()
+    .select("*")
     .eq("credit_card_id", cardId)
-    .eq("status", "pending");
+    .eq("status", "pending")
+    .maybeSingle();
 
-  if (error) {
-    console.error("Error deleting credit card bill:", error);
+  if (existingBill) {
+    console.log(`Deleting bill ${existingBill.id} for card ${cardId} as there are no transactions`);
+    const { error } = await supabase
+      .from("bills")
+      .delete()
+      .eq("id", existingBill.id);
+
+    if (error) {
+      console.error("Error deleting credit card bill:", error);
+    }
   }
 };
 
@@ -109,7 +128,7 @@ export const useCreditCards = () => {
         (cards || []).map(async (card) => {
           console.log(`Processing card: ${card.name}`);
           
-          // Buscar transações deste cartão
+          // Buscar transações deste cartão que são gastos
           const { data: transactions, error: transactionsError } = await supabase
             .from("transactions")
             .select("amount, type")
@@ -140,11 +159,10 @@ export const useCreditCards = () => {
             }
           }
 
-          // Se o valor usado for maior que R$ 0,01, criar/atualizar fatura
+          // Processar fatura: criar/atualizar se há valor, deletar se não há
           if (calculatedUsedAmount > 0.01) {
             await createOrUpdateCreditCardBill(card as CreditCard, calculatedUsedAmount);
           } else {
-            // Se não há valor, verificar se existe fatura para deletar
             await deleteCreditCardBillIfExists(card.id);
           }
 
@@ -157,6 +175,9 @@ export const useCreditCards = () => {
 
       return cardsWithUsedAmount as CreditCard[];
     },
+    // Diminuir a frequência de revalidação para evitar chamadas excessivas
+    staleTime: 60000, // 1 minuto
+    refetchInterval: false, // Desabilitar refetch automático
   });
 };
 
