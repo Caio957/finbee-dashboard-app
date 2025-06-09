@@ -26,8 +26,8 @@ export function SalaryConfigDialog({
   
   const [formData, setFormData] = useState({
     description: salary?.description || "Salário",
-    gross_amount: salary?.gross_amount || 0,
-    net_amount: salary?.net_amount || 0,
+    gross_amount: salary?.gross_amount || "",
+    net_amount: salary?.net_amount || "",
     account_id: salary?.account_id || "",
     payment_day: salary?.payment_day || 5,
     is_active: salary?.is_active ?? true,
@@ -36,20 +36,26 @@ export function SalaryConfigDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    const submitData = {
+      ...formData,
+      gross_amount: Number(formData.gross_amount) || 0,
+      net_amount: Number(formData.net_amount) || 0,
+    };
+
     if (salary) {
       await updateSalary.mutateAsync({
         id: salary.id,
-        ...formData,
+        ...submitData,
       });
     } else {
-      await createSalary.mutateAsync(formData);
+      await createSalary.mutateAsync(submitData);
     }
 
     onOpenChange(false);
     setFormData({
       description: "Salário",
-      gross_amount: 0,
-      net_amount: 0,
+      gross_amount: "",
+      net_amount: "",
       account_id: "",
       payment_day: 5,
       is_active: true,
@@ -81,8 +87,9 @@ export function SalaryConfigDialog({
               id="gross_amount"
               type="number"
               step="0.01"
+              placeholder="0,00"
               value={formData.gross_amount}
-              onChange={(e) => setFormData({ ...formData, gross_amount: Number(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, gross_amount: e.target.value })}
               required
             />
           </div>
@@ -93,8 +100,9 @@ export function SalaryConfigDialog({
               id="net_amount"
               type="number"
               step="0.01"
+              placeholder="0,00"
               value={formData.net_amount}
-              onChange={(e) => setFormData({ ...formData, net_amount: Number(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, net_amount: e.target.value })}
               required
             />
           </div>

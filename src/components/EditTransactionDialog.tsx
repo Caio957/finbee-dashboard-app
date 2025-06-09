@@ -22,7 +22,7 @@ export function EditTransactionDialog({ transaction, open, onOpenChange }: EditT
   
   const [formData, setFormData] = useState({
     description: "",
-    amount: 0,
+    amount: "",
     type: "expense" as "income" | "expense",
     account_id: "",
     category_id: "",
@@ -34,7 +34,7 @@ export function EditTransactionDialog({ transaction, open, onOpenChange }: EditT
     if (transaction) {
       setFormData({
         description: transaction.description,
-        amount: transaction.amount,
+        amount: transaction.amount || "",
         type: transaction.type,
         account_id: transaction.account_id || "",
         category_id: transaction.category_id || "",
@@ -48,11 +48,16 @@ export function EditTransactionDialog({ transaction, open, onOpenChange }: EditT
     e.preventDefault();
     if (!transaction) return;
 
-    await updateTransaction.mutateAsync({
-      id: transaction.id,
+    const submitData = {
       ...formData,
+      amount: Number(formData.amount) || 0,
       account_id: formData.account_id || null,
       category_id: formData.category_id || null,
+    };
+
+    await updateTransaction.mutateAsync({
+      id: transaction.id,
+      ...submitData,
     });
     
     onOpenChange(false);
@@ -82,8 +87,9 @@ export function EditTransactionDialog({ transaction, open, onOpenChange }: EditT
               id="amount"
               type="number"
               step="0.01"
+              placeholder="0,00"
               value={formData.amount}
-              onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
               required
             />
           </div>

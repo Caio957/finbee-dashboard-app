@@ -27,7 +27,7 @@ export function EditCreditCardTransactionDialog({
   
   const [formData, setFormData] = useState({
     description: transaction?.description || "",
-    amount: transaction?.amount || 0,
+    amount: transaction?.amount || "",
     category_id: transaction?.category_id || "",
     date: transaction?.date || new Date().toISOString().split('T')[0],
   });
@@ -38,9 +38,14 @@ export function EditCreditCardTransactionDialog({
     e.preventDefault();
     if (!transaction) return;
 
+    const submitData = {
+      ...formData,
+      amount: Number(formData.amount) || 0,
+    };
+
     await updateTransaction.mutateAsync({
       id: transaction.id,
-      ...formData,
+      ...submitData,
     });
 
     onOpenChange(false);
@@ -77,8 +82,9 @@ export function EditCreditCardTransactionDialog({
               id="amount"
               type="number"
               step="0.01"
+              placeholder="0,00"
               value={formData.amount}
-              onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
               required
             />
           </div>

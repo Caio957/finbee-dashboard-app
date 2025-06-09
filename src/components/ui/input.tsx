@@ -1,9 +1,35 @@
+
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
 const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
-  ({ className, type, ...props }, ref) => {
+  ({ className, type, value, onChange, ...props }, ref) => {
+    // Para campos numéricos, não exibir 0 como valor padrão
+    const displayValue = React.useMemo(() => {
+      if (type === "number" && (value === 0 || value === "0")) {
+        return "";
+      }
+      return value;
+    }, [type, value]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (type === "number" && onChange) {
+        // Se o campo estiver vazio, tratar como 0 para campos numéricos
+        const numericValue = e.target.value === "" ? "" : e.target.value;
+        const syntheticEvent = {
+          ...e,
+          target: {
+            ...e.target,
+            value: numericValue
+          }
+        };
+        onChange(syntheticEvent);
+      } else if (onChange) {
+        onChange(e);
+      }
+    };
+
     return (
       <input
         type={type}
@@ -12,6 +38,8 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
           className
         )}
         ref={ref}
+        value={displayValue}
+        onChange={handleChange}
         {...props}
       />
     )

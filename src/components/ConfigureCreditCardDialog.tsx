@@ -24,7 +24,7 @@ export function ConfigureCreditCardDialog({
   const [formData, setFormData] = useState({
     name: card?.name || "",
     bank: card?.bank || "",
-    card_limit: card?.card_limit || 0,
+    card_limit: card?.card_limit || "",
     due_date: card?.due_date || 10,
     closing_date: card?.closing_date || 25,
     status: card?.status || "active" as const,
@@ -34,9 +34,14 @@ export function ConfigureCreditCardDialog({
     e.preventDefault();
     if (!card) return;
 
+    const submitData = {
+      ...formData,
+      card_limit: Number(formData.card_limit) || 0,
+    };
+
     await updateCreditCard.mutateAsync({
       id: card.id,
-      ...formData,
+      ...submitData,
     });
 
     onOpenChange(false);
@@ -74,8 +79,10 @@ export function ConfigureCreditCardDialog({
             <Input
               id="limit"
               type="number"
+              step="0.01"
+              placeholder="0,00"
               value={formData.card_limit}
-              onChange={(e) => setFormData({ ...formData, card_limit: Number(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, card_limit: e.target.value })}
               required
             />
           </div>
