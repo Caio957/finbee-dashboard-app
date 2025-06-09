@@ -192,10 +192,10 @@ export const useUpdateCreditCard = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...card }: Partial<CreditCard> & { id: string }) => {
+    mutationFn: async ({ id, ...creditCard }: Partial<any> & { id: string }) => {
       const { data, error } = await supabase
         .from("credit_cards")
-        .update(card)
+        .update(creditCard)
         .eq("id", id)
         .select()
         .single();
@@ -205,7 +205,8 @@ export const useUpdateCreditCard = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
-      queryClient.invalidateQueries({ queryKey: ["bills"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
       toast.success("Cartão atualizado com sucesso!");
     },
     onError: (error: any) => {

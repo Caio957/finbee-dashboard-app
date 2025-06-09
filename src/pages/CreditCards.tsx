@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CreditCardInvoiceDialog } from "@/components/CreditCardInvoiceDialog";
 import { ConfigureCreditCardDialog } from "@/components/ConfigureCreditCardDialog";
+import { CreditCardPaymentDialog } from "@/components/CreditCardPaymentDialog";
 import { toast } from "sonner";
 
 export default function CreditCards() {
@@ -26,6 +27,8 @@ export default function CreditCards() {
   const [selectedCard, setSelectedCard] = useState<any>(null);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [paymentCard, setPaymentCard] = useState<any>(null);
   const [formData, setFormData] = useState({
     name: "",
     bank: "",
@@ -57,6 +60,11 @@ export default function CreditCards() {
       return;
     }
     await deleteCreditCard.mutateAsync(cardId);
+  };
+
+  const handlePayInvoice = (card: any) => {
+    setPaymentCard(card);
+    setIsPaymentDialogOpen(true);
   };
 
   const totalLimit = creditCards.reduce((sum, card) => sum + card.card_limit, 0);
@@ -288,6 +296,15 @@ export default function CreditCards() {
                     >
                       Ver Fatura
                     </Button>
+                    {card.used_amount > 0 && (
+                      <Button 
+                        size="sm" 
+                        className="flex-1"
+                        onClick={() => handlePayInvoice(card)}
+                      >
+                        Pagar Fatura
+                      </Button>
+                    )}
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -344,6 +361,12 @@ export default function CreditCards() {
         card={selectedCard}
         open={isConfigDialogOpen}
         onOpenChange={setIsConfigDialogOpen}
+      />
+
+      <CreditCardPaymentDialog
+        card={paymentCard}
+        open={isPaymentDialogOpen}
+        onOpenChange={setIsPaymentDialogOpen}
       />
     </div>
   );

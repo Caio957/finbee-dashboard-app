@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { EditBillDialog } from "@/components/EditBillDialog";
+import { PaymentDialog } from "@/components/PaymentDialog";
 import { toast } from "sonner";
 
 export default function Bills() {
@@ -28,6 +28,8 @@ export default function Bills() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editBill, setEditBill] = useState<any>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [paymentBill, setPaymentBill] = useState<any>(null);
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     description: "",
     amount: 0,
@@ -71,8 +73,9 @@ export default function Bills() {
     });
   };
 
-  const handleMarkAsPaid = async (id: string) => {
-    await updateBillStatus.mutateAsync({ id, status: "paid" });
+  const handleMarkAsPaid = async (bill: any) => {
+    setPaymentBill(bill);
+    setIsPaymentDialogOpen(true);
   };
 
   const handleRevertToPending = async (id: string) => {
@@ -360,7 +363,7 @@ export default function Bills() {
                         <Button 
                           size="sm" 
                           className="flex items-center gap-1"
-                          onClick={() => handleMarkAsPaid(bill.id)}
+                          onClick={() => handleMarkAsPaid(bill)}
                           disabled={updateBillStatus.isPending}
                         >
                           <CheckCircle className="h-4 w-4" />
@@ -392,6 +395,12 @@ export default function Bills() {
         bill={editBill}
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
+      />
+
+      <PaymentDialog
+        bill={paymentBill}
+        open={isPaymentDialogOpen}
+        onOpenChange={setIsPaymentDialogOpen}
       />
     </div>
   );
