@@ -16,6 +16,8 @@ export const useAccounts = () => {
   return useQuery({
     queryKey: ["accounts"],
     queryFn: async (): Promise<Account[]> => {
+      console.log("Fetching accounts and recalculating balances...");
+      
       // Primeiro, buscamos as contas
       const { data: accounts, error: accountsError } = await supabase
         .from("accounts")
@@ -27,18 +29,21 @@ export const useAccounts = () => {
       // Para cada conta, calculamos o saldo baseado nas transações
       const accountsWithBalance = await Promise.all(
         (accounts || []).map(async (account) => {
-          // Buscar transações desta conta
+          console.log(`Recalculating balance for account: ${account.name}`);
+          
+          // Buscar transações desta conta que estão completas
           const { data: transactions, error: transactionsError } = await supabase
             .from("transactions")
-            .select("amount, type")
-            .eq("account_id", account.id);
+            .select("amount, type, status")
+            .eq("account_id", account.id)
+            .eq("status", "completed");
 
           if (transactionsError) {
             console.error("Error fetching transactions for account:", transactionsError);
             return account;
           }
 
-          // Calcular saldo baseado nas transações
+          // Calcular saldo baseado nas transações completas
           const calculatedBalance = (transactions || []).reduce((sum, transaction) => {
             if (transaction.type === "income") {
               return sum + Number(transaction.amount);
@@ -47,16 +52,16 @@ export const useAccounts = () => {
             }
           }, 0);
 
-          // Atualizar o saldo na conta se for diferente
-          if (Math.abs(calculatedBalance - Number(account.balance)) > 0.01) {
-            const { error: updateError } = await supabase
-              .from("accounts")
-              .update({ balance: calculatedBalance })
-              .eq("id", account.id);
+          console.log(`Account ${account.name}: calculated balance = ${calculatedBalance}, stored balance = ${account.balance}`);
 
-            if (updateError) {
-              console.error("Error updating account balance:", updateError);
-            }
+          // Sempre atualizar o saldo no banco para manter consistência
+          const { error: updateError } = await supabase
+            .from("accounts")
+            .update({ balance: calculatedBalance })
+            .eq("id", account.id);
+
+          if (updateError) {
+            console.error("Error updating account balance:", updateError);
           }
 
           return {
@@ -68,6 +73,8 @@ export const useAccounts = () => {
 
       return accountsWithBalance as Account[];
     },
+    // Revalidar a cada 30 segundos para manter dados atualizados
+    staleTime: 30000,
   });
 };
 

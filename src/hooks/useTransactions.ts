@@ -100,6 +100,8 @@ export const useDeleteTransaction = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
+      console.log(`Deleting transaction: ${id}`);
+      
       const { error } = await supabase
         .from("transactions")
         .delete()
@@ -108,15 +110,22 @@ export const useDeleteTransaction = () => {
       if (error) throw error;
     },
     onSuccess: () => {
+      console.log("Transaction deleted successfully, invalidating all related queries");
+      
       // Invalidar todas as queries relacionadas para atualizar os saldos
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
       queryClient.invalidateQueries({ queryKey: ["bills"] });
-      toast.success("Transação excluída com sucesso!");
+      
+      // Forçar refetch imediato das contas para garantir atualização
+      queryClient.refetchQueries({ queryKey: ["accounts"] });
+      
+      toast.success("Transação estornada com sucesso!");
     },
     onError: (error: any) => {
-      toast.error(error.message || "Erro ao excluir transação");
+      console.error("Error deleting transaction:", error);
+      toast.error(error.message || "Erro ao estornar transação");
     },
   });
 };
