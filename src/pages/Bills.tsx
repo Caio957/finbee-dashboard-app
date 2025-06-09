@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Calendar, CheckCircle, Edit, Trash2, Undo2, CreditCard } from "lucide-react";
+import { Plus, Search, Calendar, CheckCircle, Edit, Trash2, Undo2, CreditCard, Broom } from "lucide-react";
 import { useBills, useCreateBill, useUpdateBillStatus, useDeleteBill } from "@/hooks/useBills";
 import { useCreateTransaction } from "@/hooks/useTransactions";
 import { useCreditCards } from "@/hooks/useCreditCards";
+import { useBillCleanup } from "@/hooks/useBillCleanup";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -22,6 +23,7 @@ export default function Bills() {
   const updateBillStatus = useUpdateBillStatus();
   const deleteBill = useDeleteBill();
   const createTransaction = useCreateTransaction();
+  const billCleanup = useBillCleanup();
   
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "paid" | "overdue">("all");
@@ -93,6 +95,10 @@ export default function Bills() {
     setIsEditDialogOpen(true);
   };
 
+  const handleCleanupDuplicates = async () => {
+    await billCleanup.mutateAsync();
+  };
+
   const filteredBills = bills.filter(bill => {
     const matchesSearch = bill.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || bill.status === statusFilter;
@@ -125,104 +131,115 @@ export default function Bills() {
           <h1 className="text-3xl font-bold">Faturas a Pagar</h1>
           <p className="text-muted-foreground">Gerencie suas contas e compromissos</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Nova Fatura
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Adicionar Nova Fatura</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="description">Descrição</Label>
-                <Input
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Ex: Aluguel"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="amount">Valor</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
-                  placeholder="1200.00"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="due_date">Data de Vencimento</Label>
-                <Input
-                  id="due_date"
-                  type="date"
-                  value={formData.due_date}
-                  onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="category">Categoria</Label>
-                <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Moradia">Moradia</SelectItem>
-                    <SelectItem value="Utilities">Utilities</SelectItem>
-                    <SelectItem value="Transporte">Transporte</SelectItem>
-                    <SelectItem value="Saúde">Saúde</SelectItem>
-                    <SelectItem value="Outros">Outros</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="recurring"
-                  checked={formData.recurring}
-                  onCheckedChange={(checked) => setFormData({ ...formData, recurring: checked })}
-                />
-                <Label htmlFor="recurring">Recorrente</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="is_credit_card"
-                  checked={formData.is_credit_card}
-                  onCheckedChange={(checked) => setFormData({ ...formData, is_credit_card: checked, credit_card_id: "" })}
-                />
-                <Label htmlFor="is_credit_card">Fatura de Cartão de Crédito</Label>
-              </div>
-              {formData.is_credit_card && (
+        <div className="flex gap-2">
+          <Button 
+            variant="outline"
+            onClick={handleCleanupDuplicates}
+            disabled={billCleanup.isPending}
+            className="flex items-center gap-2"
+          >
+            <Broom className="h-4 w-4" />
+            {billCleanup.isPending ? "Limpando..." : "Limpar Duplicatas"}
+          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Nova Fatura
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Adicionar Nova Fatura</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <Label htmlFor="credit_card_id">Cartão de Crédito</Label>
-                  <Select value={formData.credit_card_id} onValueChange={(value) => setFormData({ ...formData, credit_card_id: value })}>
+                  <Label htmlFor="description">Descrição</Label>
+                  <Input
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Ex: Aluguel"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="amount">Valor</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    value={formData.amount}
+                    onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
+                    placeholder="1200.00"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="due_date">Data de Vencimento</Label>
+                  <Input
+                    id="due_date"
+                    type="date"
+                    value={formData.due_date}
+                    onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="category">Categoria</Label>
+                  <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione um cartão" />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {creditCards.map((card) => (
-                        <SelectItem key={card.id} value={card.id}>
-                          {card.name} - {card.bank}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="Moradia">Moradia</SelectItem>
+                      <SelectItem value="Utilities">Utilities</SelectItem>
+                      <SelectItem value="Transporte">Transporte</SelectItem>
+                      <SelectItem value="Saúde">Saúde</SelectItem>
+                      <SelectItem value="Outros">Outros</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              )}
-              <Button type="submit" className="w-full" disabled={createBill.isPending}>
-                {createBill.isPending ? "Adicionando..." : "Adicionar Fatura"}
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="recurring"
+                    checked={formData.recurring}
+                    onCheckedChange={(checked) => setFormData({ ...formData, recurring: checked })}
+                  />
+                  <Label htmlFor="recurring">Recorrente</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="is_credit_card"
+                    checked={formData.is_credit_card}
+                    onCheckedChange={(checked) => setFormData({ ...formData, is_credit_card: checked, credit_card_id: "" })}
+                  />
+                  <Label htmlFor="is_credit_card">Fatura de Cartão de Crédito</Label>
+                </div>
+                {formData.is_credit_card && (
+                  <div>
+                    <Label htmlFor="credit_card_id">Cartão de Crédito</Label>
+                    <Select value={formData.credit_card_id} onValueChange={(value) => setFormData({ ...formData, credit_card_id: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um cartão" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {creditCards.map((card) => (
+                          <SelectItem key={card.id} value={card.id}>
+                            {card.name} - {card.bank}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <Button type="submit" className="w-full" disabled={createBill.isPending}>
+                  {createBill.isPending ? "Adicionando..." : "Adicionar Fatura"}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Resumo */}
