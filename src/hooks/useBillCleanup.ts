@@ -10,8 +10,9 @@ export const useBillCleanup = () => {
     mutationFn: async () => {
       console.log("Starting bill cleanup process...");
       
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("User not authenticated");
+      const user = session.user;
 
       // Buscar todas as faturas de cartão de crédito pendentes do usuário
       const { data: bills, error } = await supabase

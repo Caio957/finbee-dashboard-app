@@ -92,9 +92,10 @@ export const useCreateAccount = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (account: Omit<Account, "id" | "created_at" | "updated_at">) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+    mutationFn: async (account: Omit<Account, "id" | "created_at" | "balance">) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("User not authenticated");
+      const user = session.user;
 
       const { data, error } = await supabase
         .from("accounts")

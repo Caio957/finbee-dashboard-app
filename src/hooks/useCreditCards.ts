@@ -47,8 +47,9 @@ const cleanupDuplicateBills = async (cardId: string) => {
 };
 
 const createOrUpdateCreditCardBill = async (card: CreditCard, amount: number) => {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return;
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+  const user = session.user;
 
   console.log(`Processing credit card bill for card ${card.name} with amount ${amount}`);
 
@@ -227,8 +228,9 @@ export const useCreateCreditCard = () => {
 
   return useMutation({
     mutationFn: async (card: Omit<CreditCard, "id" | "created_at">) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("User not authenticated");
+      const user = session.user;
 
       const { data, error } = await supabase
         .from("credit_cards")
