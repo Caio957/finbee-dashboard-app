@@ -78,6 +78,7 @@ export function PaymentDialog({ bill, open, onOpenChange }: PaymentDialogProps) 
         account_id: selectedAccountId,
         category_id: null,
         credit_card_id: bill.credit_card_id || null,
+        bill_id: bill.id,
       });
 
       // Marcar fatura como paga

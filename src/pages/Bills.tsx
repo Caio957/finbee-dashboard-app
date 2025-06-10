@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, Calendar, CheckCircle, Edit, Trash2, Undo2, CreditCard, Sparkles} from "lucide-react";
-import { useBills, useCreateBill, useUpdateBillStatus, useDeleteBill } from "@/hooks/useBills";
+// ALTERAÇÃO 1: Importar o novo hook
+import { useBills, useCreateBill, useUpdateBillStatus, useDeleteBill, useRevertBillPayment } from "@/hooks/useBills";
 import { useCreateTransaction } from "@/hooks/useTransactions";
 import { useCreditCards } from "@/hooks/useCreditCards";
 import { useBillCleanup } from "@/hooks/useBillCleanup";
@@ -20,10 +21,12 @@ export default function Bills() {
   const { data: bills = [], isLoading } = useBills();
   const { data: creditCards = [] } = useCreditCards();
   const createBill = useCreateBill();
-  const updateBillStatus = useUpdateBillStatus();
+  const updateBillStatus = useUpdateBillStatus(); // Pode ser removido se não for mais usado
   const deleteBill = useDeleteBill();
   const createTransaction = useCreateTransaction();
   const billCleanup = useBillCleanup();
+  // ALTERAÇÃO 2: Inicializar o novo hook
+  const revertBillPayment = useRevertBillPayment();
   
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "paid" | "overdue">("all");
@@ -49,7 +52,6 @@ export default function Bills() {
       status: "pending" as const,
     });
 
-    // Se for fatura de cartão de crédito, criar transação
     if (formData.is_credit_card && formData.credit_card_id) {
       await createTransaction.mutateAsync({
         description: formData.description,
@@ -80,8 +82,9 @@ export default function Bills() {
     setIsPaymentDialogOpen(true);
   };
 
+  // ALTERAÇÃO 3: Usar a nova lógica de estorno
   const handleRevertToPending = async (id: string) => {
-    await updateBillStatus.mutateAsync({ id, status: "pending" });
+    await revertBillPayment.mutateAsync(id);
   };
 
   const handleDeleteBill = async (id: string) => {
@@ -126,6 +129,7 @@ export default function Bills() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
+      {/* ...código do cabeçalho e resumo... */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Faturas a Pagar</h1>
@@ -149,181 +153,13 @@ export default function Bills() {
               </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Adicionar Nova Fatura</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="description">Descrição</Label>
-                  <Input
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Ex: Aluguel"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="amount">Valor</Label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
-                    placeholder="1200.00"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="due_date">Data de Vencimento</Label>
-                  <Input
-                    id="due_date"
-                    type="date"
-                    value={formData.due_date}
-                    onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="category">Categoria</Label>
-                  <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Moradia">Moradia</SelectItem>
-                      <SelectItem value="Utilities">Utilities</SelectItem>
-                      <SelectItem value="Transporte">Transporte</SelectItem>
-                      <SelectItem value="Saúde">Saúde</SelectItem>
-                      <SelectItem value="Outros">Outros</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="recurring"
-                    checked={formData.recurring}
-                    onCheckedChange={(checked) => setFormData({ ...formData, recurring: checked })}
-                  />
-                  <Label htmlFor="recurring">Recorrente</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="is_credit_card"
-                    checked={formData.is_credit_card}
-                    onCheckedChange={(checked) => setFormData({ ...formData, is_credit_card: checked, credit_card_id: "" })}
-                  />
-                  <Label htmlFor="is_credit_card">Fatura de Cartão de Crédito</Label>
-                </div>
-                {formData.is_credit_card && (
-                  <div>
-                    <Label htmlFor="credit_card_id">Cartão de Crédito</Label>
-                    <Select value={formData.credit_card_id} onValueChange={(value) => setFormData({ ...formData, credit_card_id: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um cartão" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {creditCards.map((card) => (
-                          <SelectItem key={card.id} value={card.id}>
-                            {card.name} - {card.bank}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                <Button type="submit" className="w-full" disabled={createBill.isPending}>
-                  {createBill.isPending ? "Adicionando..." : "Adicionar Fatura"}
-                </Button>
-              </form>
+                {/* ... conteúdo do formulário ... */}
             </DialogContent>
           </Dialog>
         </div>
       </div>
-
-      {/* Resumo */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Pendente</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">R$ {totalPending.toLocaleString('pt-BR')}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Em Atraso</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">R$ {totalOverdue.toLocaleString('pt-BR')}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Pagas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">R$ {totalPaid.toLocaleString('pt-BR')}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total de Faturas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{bills.length}</div>
-            <p className="text-xs text-muted-foreground">cadastradas</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filtros */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filtros</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar faturas..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button 
-                variant={statusFilter === "all" ? "default" : "outline"}
-                onClick={() => setStatusFilter("all")}
-              >
-                Todas
-              </Button>
-              <Button 
-                variant={statusFilter === "pending" ? "default" : "outline"}
-                onClick={() => setStatusFilter("pending")}
-              >
-                Pendentes
-              </Button>
-              <Button 
-                variant={statusFilter === "paid" ? "default" : "outline"}
-                onClick={() => setStatusFilter("paid")}
-              >
-                Pagas
-              </Button>
-              <Button 
-                variant={statusFilter === "overdue" ? "default" : "outline"}
-                onClick={() => setStatusFilter("overdue")}
-              >
-                Vencidas
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      
+      {/* ... Resumo e Filtros ... */}
 
       {/* Lista de Faturas */}
       <Card>
@@ -339,64 +175,24 @@ export default function Bills() {
             ) : (
               filteredBills.map((bill) => (
                 <div key={bill.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <Calendar className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{bill.description}</p>
-                        {bill.recurring && <Badge variant="outline" className="text-xs">Recorrente</Badge>}
-                        {bill.credit_card_id && <CreditCard className="h-4 w-4 text-blue-600" />}
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span>{bill.category}</span>
-                        <span>•</span>
-                        <span>Vence em {new Date(bill.due_date).toLocaleDateString('pt-BR')}</span>
-                      </div>
-                    </div>
-                  </div>
+                  {/* ...informações da fatura... */}
                   <div className="flex items-center gap-4">
                     <div className="text-right">
-                      <div className="text-lg font-semibold">
-                        R$ {bill.amount.toLocaleString('pt-BR')}
-                      </div>
-                      {getStatusBadge(bill.status)}
+                        {/* ... */}
                     </div>
                     <div className="flex gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleEditBill(bill)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleDeleteBill(bill.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                      {bill.status === "pending" && (
-                        <Button 
-                          size="sm" 
-                          className="flex items-center gap-1"
-                          onClick={() => handleMarkAsPaid(bill)}
-                          disabled={updateBillStatus.isPending}
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                          Pagar
-                        </Button>
-                      )}
+                      {/* ...outros botões... */}
                       {bill.status === "paid" && (
                         <Button 
                           size="sm" 
                           variant="outline"
                           className="flex items-center gap-1"
                           onClick={() => handleRevertToPending(bill.id)}
-                          disabled={updateBillStatus.isPending}
+                          // ALTERAÇÃO 4: Usar o estado de 'pending' do novo hook
+                          disabled={revertBillPayment.isPending} 
                         >
                           <Undo2 className="h-4 w-4" />
-                          Estornar
+                          {revertBillPayment.isPending ? "Estornando..." : "Estornar"}
                         </Button>
                       )}
                     </div>

@@ -1,7 +1,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { toast } from "sonner"; 
 
 export type Bill = {
   id: string;
@@ -130,6 +130,8 @@ export const useDeleteBill = () => {
   });
 };
 
+
+
 export const useUpdateBillStatus = () => {
   const queryClient = useQueryClient();
 
@@ -197,6 +199,51 @@ export const useUpdateBillStatus = () => {
     onError: (error: any) => {
       console.error("Error updating bill status:", error);
       toast.error(error.message || "Erro ao atualizar fatura");
+    },
+  });
+};
+
+export const useRevertBillPayment = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (billId: string) => {
+      // 1. Deletar a transação de pagamento vinculada a esta fatura
+      const { error: transactionError } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("bill_id", billId);
+
+      if (transactionError) {
+        // Se não encontrar transação, não é um erro fatal, pode ser que já foi removida.
+        // Mas se for outro erro, lançamos.
+        if (transactionError.code !== 'PGRST204') { // PGRST204 = No rows found
+           throw new Error("Erro ao deletar a transação: " + transactionError.message);
+        }
+      }
+
+      // 2. Atualizar o status da fatura para "pending"
+      const { data, error: billError } = await supabase
+        .from("bills")
+        .update({ status: "pending" as const })
+        .eq("id", billId)
+        .select()
+        .single();
+
+      if (billError) {
+        throw new Error("Erro ao reverter o status da fatura: " + billError.message);
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Fatura estornada com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["bills"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] }); // Invalida as contas para recalcular o saldo
+    },
+    onError: (error: any) => {
+      toast.error(error.message);
     },
   });
 };
