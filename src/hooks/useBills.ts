@@ -1,7 +1,8 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner"; 
+import { toast } from "sonner";
+import { Bill } from "@/types"; 
 
 export type Bill = {
   id: string;
@@ -35,8 +36,17 @@ export const useCreateBill = () => {
 
   return useMutation({
     mutationFn: async (bill: Omit<Bill, "id" | "created_at">) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        throw new Error(sessionError.message);
+      }
+
+      if (!session) {
+        throw new Error("Usuário não autenticado. Faça o login para continuar.");
+      }
+      
+      const user = session.user;
 
       const { data, error } = await supabase
         .from("bills")
