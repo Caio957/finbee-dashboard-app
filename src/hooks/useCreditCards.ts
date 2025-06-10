@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { CreditCard } from "@/types";
+import type { CreditCard } from '@/types'; // VERIFIQUE SE ESTÁ ASSIM
 
 // (Funções auxiliares como 'cleanupDuplicateBills' e 'deleteCreditCardBillIfExists' permanecem aqui)
 
