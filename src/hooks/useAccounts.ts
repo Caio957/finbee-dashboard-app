@@ -3,34 +3,34 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Account } from "@/types"; // <-- Importação correta
+import { Account } from "@/types";
 
 export const useAccounts = () => {
-  return useQuery({
-    queryKey: ["accounts"],
-    queryFn: async (): Promise<Account[]> => {
-      const { data, error } = await supabase.from("accounts").select("*");
-      if (error) throw error;
-      return data || [];
-    },
-  });
+  // ... (este hook não precisa de alteração)
 };
 
 export const useCreateAccount = () => {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async (account: Omit<Account, "id" | "created_at" | "user_id" | "balance">) => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("User not authenticated");
+      // --- CORREÇÃO APLICADA AQUI ---
+      const { data, error: sessionError } = await supabase.auth.getSession();
 
-      const { data, error } = await supabase
+      if (sessionError) throw new Error(sessionError.message);
+      if (!data.session) throw new Error("Usuário não autenticado.");
+      
+      const user = data.session.user;
+      // --- FIM DA CORREÇÃO ---
+
+      const { data: accountData, error } = await supabase
         .from("accounts")
-        .insert([{ ...account, user_id: session.user.id }])
+        .insert([{ ...account, user_id: user.id, balance: 0 }]) // Adicionado balance: 0 como padrão
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return accountData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
@@ -41,3 +41,5 @@ export const useCreateAccount = () => {
     },
   });
 };
+
+// ... (outros hooks do arquivo se existirem)

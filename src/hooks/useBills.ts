@@ -27,8 +27,16 @@ export const useCreateBill = () => {
 
   return useMutation({
     mutationFn: async (bill: Omit<Bill, "id" | "created_at" | "user_id">) => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Usuário não autenticado.");
+      const { data, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        throw new Error(sessionError.message);
+      }
+      if (!data.session) {
+        throw new Error("Usuário não autenticado. Faça o login para continuar.");
+      }
+      
+      const user = data.session.user;
       
       const { data, error } = await supabase
         .from("bills")

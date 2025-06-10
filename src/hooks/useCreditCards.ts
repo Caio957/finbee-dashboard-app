@@ -3,27 +3,48 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { CreditCard } from "@/types"; // <-- Importação correta
+import { CreditCard, Transaction } from "@/types";
 
-// ... (todo o seu código de useCreditCards, createOrUpdate, etc. aqui)
-// Apenas garanta que a definição local de 'CreditCard' foi removida e a importação acima foi adicionada.
+const createOrUpdateCreditCardBill = async (card: CreditCard, amount: number) => {
+  // --- 1ª CORREÇÃO APLICADA AQUI ---
+  const { data, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) {
+    console.error("Error fetching session:", sessionError);
+    return;
+  }
+  if (!data.session) {
+    console.error("User not authenticated for creating/updating bill.");
+    return;
+  }
+  const user = data.session.user;
+  // --- FIM DA 1ª CORREÇÃO ---
 
-// Exemplo da correção em useCreateCreditCard:
+  console.log(`Processing credit card bill for card ${card.name} with amount ${amount}`);
+  // ... (o resto da função continua)
+};
+
+// ... (outras funções auxiliares do arquivo)
+
 export const useCreateCreditCard = () => {
   const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async (card: Omit<CreditCard, "id" | "created_at" | "user_id" | "used_amount">) => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("User not authenticated");
+      // --- 2ª CORREÇÃO APLICADA AQUI ---
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw new Error(sessionError.message);
+      if (!data.session) throw new Error("Usuário não autenticado.");
+      const user = data.session.user;
+      // --- FIM DA 2ª CORREÇÃO ---
 
-      const { data, error } = await supabase
+      const { data: cardData, error } = await supabase
         .from("credit_cards")
-        .insert([{ ...card, user_id: session.user.id }])
+        .insert([{ ...card, user_id: user.id }])
         .select()
         .single();
         
       if (error) throw error;
-      return data;
+      return cardData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
@@ -34,4 +55,5 @@ export const useCreateCreditCard = () => {
     },
   });
 };
-// ... (continue com os outros hooks do arquivo)
+
+// ... (o resto dos hooks do arquivo: useCreditCards, useUpdateCreditCard, etc.)
