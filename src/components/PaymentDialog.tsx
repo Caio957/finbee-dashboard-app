@@ -1,3 +1,4 @@
+// src/components/PaymentDialog.tsx (VERSÃO CORRIGIDA)
 
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -6,17 +7,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useCreateTransaction } from "@/hooks/useTransactions";
-import { useUpdateBillStatus } from "@/hooks/useBills";
-import { Wallet, CreditCard, PiggyBank } from "lucide-react";
+// CORREÇÃO 1: Importar 'useUpdateBill' no lugar do antigo 'useUpdateBillStatus'
+import { useUpdateBill } from "@/hooks/useBills";
+import { Wallet, PiggyBank } from "lucide-react";
 import { toast } from "sonner";
+import type { Bill, Account} from "@/types";
+import type { Transaction } from "@/types"; // Garanta que o tipo Transaction está sendo importado
 
 interface PaymentDialogProps {
-  bill: {
-    id: string;
-    description: string;
-    amount: number;
-    credit_card_id?: string | null;
-  } | null;
+  bill: Bill | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -24,27 +23,9 @@ interface PaymentDialogProps {
 export function PaymentDialog({ bill, open, onOpenChange }: PaymentDialogProps) {
   const { data: accounts = [] } = useAccounts();
   const createTransaction = useCreateTransaction();
-  const updateBillStatus = useUpdateBillStatus();
+  // CORREÇÃO 2: Usar o hook correto
+  const updateBill = useUpdateBill();
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  const getAccountIcon = (type: string) => {
-    switch (type) {
-      case "checking": return <Wallet className="h-4 w-4" />;
-      case "savings": return <PiggyBank className="h-4 w-4" />;
-      case "credit": return <CreditCard className="h-4 w-4" />;
-      default: return <Wallet className="h-4 w-4" />;
-    }
-  };
-
-  const getAccountTypeLabel = (type: string) => {
-    switch (type) {
-      case "checking": return "Corrente";
-      case "savings": return "Poupança";
-      case "credit": return "Crédito";
-      default: return type;
-    }
-  };
 
   const handlePayment = async () => {
     if (!bill || !selectedAccountId) {
@@ -52,23 +33,8 @@ export function PaymentDialog({ bill, open, onOpenChange }: PaymentDialogProps) 
       return;
     }
 
-    const selectedAccount = accounts.find(acc => acc.id === selectedAccountId);
-    if (!selectedAccount) {
-      toast.error("Conta selecionada não encontrada");
-      return;
-    }
-
-    if (selectedAccount.balance < bill.amount) {
-      toast.error("Saldo insuficiente na conta selecionada");
-      return;
-    }
-
-    setIsProcessing(true);
-
     try {
-      console.log(`Processing payment for bill ${bill.id}, amount: ${bill.amount}, account: ${selectedAccountId}`);
-      
-      // Criar transação de débito na conta
+      // 1. Criar a transação de pagamento, agora vinculada com bill_id
       await createTransaction.mutateAsync({
         description: `Pagamento: ${bill.description}`,
         amount: bill.amount,
@@ -76,34 +42,32 @@ export function PaymentDialog({ bill, open, onOpenChange }: PaymentDialogProps) 
         status: "completed",
         date: new Date().toISOString().split('T')[0],
         account_id: selectedAccountId,
-        category_id: null,
-        credit_card_id: bill.credit_card_id || null,
-        bill_id: bill.id,
+        bill_id: bill.id, // Vínculo importante para o estorno
       });
 
-      // Marcar fatura como paga
-      await updateBillStatus.mutateAsync({ 
+      // 2. Atualizar o status da fatura para 'paga'
+      await updateBill.mutateAsync({ 
         id: bill.id, 
         status: "paid" 
       });
 
-      console.log("Payment processed successfully");
       toast.success("Pagamento realizado com sucesso!");
       onOpenChange(false);
       setSelectedAccountId("");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao processar pagamento:", error);
-      toast.error("Erro ao processar pagamento");
-    } finally {
-      setIsProcessing(false);
+      toast.error(error.message || "Erro ao processar pagamento");
     }
   };
 
   if (!bill) return null;
 
-  // Filtrar apenas contas que não são de crédito para pagamento
-  const availableAccounts = accounts.filter(account => 
-    account.type !== "credit" && account.balance >= bill.amount
+  const getAccountIcon = (type: string) => {
+    return type === 'savings' ? <PiggyBank className="h-4 w-4" /> : <Wallet className="h-4 w-4" />;
+  };
+
+  const availableAccounts = accounts.filter(
+    (account) => account.balance >= bill.amount
   );
 
   return (
@@ -117,63 +81,37 @@ export function PaymentDialog({ bill, open, onOpenChange }: PaymentDialogProps) 
             <h3 className="font-medium">{bill.description}</h3>
             <p className="text-2xl font-bold text-red-600">R$ {bill.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
           </div>
-
           <div>
             <Label htmlFor="account">Selecionar Conta para Débito</Label>
             <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
               <SelectTrigger>
-                <SelectValue placeholder="Escolha a conta para débito" />
+                <SelectValue placeholder="Escolha uma conta" />
               </SelectTrigger>
               <SelectContent>
-                {availableAccounts.length === 0 ? (
-                  <div className="p-2 text-center text-muted-foreground">
-                    Nenhuma conta com saldo suficiente
-                  </div>
-                ) : (
-                  availableAccounts.map((account) => (
+                {availableAccounts.length > 0 ? (
+                  availableAccounts.map((account: Account) => (
                     <SelectItem key={account.id} value={account.id}>
                       <div className="flex items-center gap-2">
                         {getAccountIcon(account.type)}
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span>{account.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              ({getAccountTypeLabel(account.type)})
-                            </span>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Saldo: R$ {account.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </div>
-                        </div>
+                        <span>{account.name} (Saldo: R$ {account.balance.toLocaleString('pt-BR')})</span>
                       </div>
                     </SelectItem>
                   ))
+                ) : (
+                  <div className="p-2 text-center text-sm text-muted-foreground">
+                    Nenhuma conta com saldo suficiente.
+                  </div>
                 )}
               </SelectContent>
             </Select>
           </div>
-
-          {selectedAccountId && (
-            <div className="p-3 border rounded-lg bg-blue-50">
-              <p className="text-sm font-medium">Resumo do Pagamento:</p>
-              <div className="text-sm text-muted-foreground mt-1">
-                <p>• Valor a ser debitado: R$ {bill.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                <p>• Nova transação será criada no extrato</p>
-                <p>• Fatura será marcada como paga</p>
-              </div>
-            </div>
-          )}
-
-          <div className="flex gap-2">
-            <Button 
-              onClick={handlePayment} 
-              className="flex-1" 
-              disabled={!selectedAccountId || isProcessing || availableAccounts.length === 0}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button
+              onClick={handlePayment}
+              disabled={!selectedAccountId || createTransaction.isPending || updateBill.isPending}
             >
-              {isProcessing ? "Processando..." : "Confirmar Pagamento"}
-            </Button>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
+              {createTransaction.isPending || updateBill.isPending ? "Processando..." : "Confirmar Pagamento"}
             </Button>
           </div>
         </div>

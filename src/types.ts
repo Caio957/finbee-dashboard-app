@@ -35,6 +35,8 @@ export type CreditCard = {
   created_at: string;
 };
 
+// Em src/types.ts
+
 export type Transaction = {
   id: string;
   description: string;
@@ -46,7 +48,7 @@ export type Transaction = {
   account_id?: string | null;
   category_id?: string | null;
   credit_card_id?: string | null;
-  bill_id?: string | null; // Já inclui o bill_id que adicionamos
+  bill_id?: string | null; // <-- ADICIONE ESTA LINHA
   created_at: string;
 };
 
