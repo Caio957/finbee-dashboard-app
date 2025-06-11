@@ -49,3 +49,9 @@ export type Transaction = {
   bill_id?: string | null; // Já inclui o bill_id que adicionamos
   created_at: string;
 };
+
+export type NewAccount = {
+  name: string;
+  type: 'checking' | 'savings';
+  bank: string;
+};
