@@ -16,7 +16,7 @@ export const useBills = () => {
         .order("due_date", { ascending: true });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as Bill[];
     },
   });
 };
@@ -37,15 +37,15 @@ export const useCreateBill = () => {
       }
       
       const user = data.session.user;
-      
-      const { data, error } = await supabase
+
+      const { data: billData, error } = await supabase // <-- CORREÇÃO AQUI
         .from("bills")
-        .insert([{ ...bill, user_id: session.user.id }])
+        .insert([{ ...bill, user_id: user.id }])
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+      return billData; // <-- E AQUI
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bills"] });
