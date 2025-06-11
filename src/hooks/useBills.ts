@@ -1,11 +1,11 @@
-// src/hooks/useBills.ts (VERSÃO CORRIGIDA)
+// src/hooks/useBills.ts (VERSÃO COM TIPAGEM EXPLÍCITA)
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import type { Bill } from '@/types'; // VERIFIQUE SE ESTÁ ASSIM
+import type { Bill } from '@/types';
 
-// Busca todas as faturas
+// Hook para buscar todas as faturas
 export const useBills = () => {
   return useQuery({
     queryKey: ["bills"],
@@ -21,40 +21,110 @@ export const useBills = () => {
   });
 };
 
-// Cria uma nova fatura
+// Hook para criar uma nova fatura
 export const useCreateBill = () => {
   const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (bill: Omit<Bill, "id" | "created_at" | "user_id">) => {
-      const { data, error: sessionError } = await supabase.auth.getSession();
-
-      if (sessionError) {
-        throw new Error(sessionError.message);
-      }
-      if (!data.session) {
-        throw new Error("Usuário não autenticado. Faça o login para continuar.");
-      }
+  // CORREÇÃO: Tipando explicitamente o useMutation
+  return useMutation<Bill, Error, Omit<Bill, "id" | "created_at" | "user_id">>({
+    mutationFn: async (bill) => {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      if (!sessionData.session) throw new Error("Usuário não autenticado.");
       
-      const user = data.session.user;
-
-      const { data: billData, error } = await supabase // <-- CORREÇÃO AQUI
+      const { data: billData, error } = await supabase
         .from("bills")
-        .insert([{ ...bill, user_id: user.id }])
+        .insert([{ ...bill, user_id: sessionData.session.user.id }])
         .select()
         .single();
 
       if (error) throw error;
-      return billData; // <-- E AQUI
+      return billData as Bill;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bills"] });
       toast.success("Fatura adicionada com sucesso!");
     },
-    onError: (error: any) => {
+    onError: (error) => {
       toast.error(error.message || "Erro ao adicionar fatura");
     },
   });
 };
 
-// (O resto dos hooks que já corrigimos, como useDeleteBill e useRevertBillPayment, continuam aqui)
+// Hook para atualizar uma fatura existente
+export const useUpdateBill = () => {
+  const queryClient = useQueryClient();
+  // CORREÇÃO: Tipando explicitamente o useMutation
+  return useMutation<Bill, Error, Partial<Bill> & { id: string }>({
+    mutationFn: async ({ id, ...bill }) => {
+      const { data, error } = await supabase
+        .from("bills")
+        .update(bill)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as Bill;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bills"] });
+      toast.success("Fatura atualizada com sucesso!");
+    },
+    onError: (error) => {
+      toast.error(error.message || "Erro ao atualizar fatura.");
+    },
+  });
+};
+
+// Hook para deletar uma fatura e sua transação de pagamento
+export const useDeleteBill = () => {
+  const queryClient = useQueryClient();
+  // CORREÇÃO: Tipando explicitamente o useMutation
+  return useMutation<void, Error, string>({
+    mutationFn: async (id) => {
+      await supabase.from("transactions").delete().eq("bill_id", id);
+      const { error } = await supabase.from("bills").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bills"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      toast.success("Fatura excluída com sucesso!");
+    },
+    onError: (error) => {
+      toast.error(error.message || "Erro ao excluir fatura");
+    },
+  });
+};
+
+// Em src/hooks/useBills.ts
+
+// Hook para estornar uma fatura paga (VERSÃO DE TESTE PARA DEBUG)
+export const useRevertBillPayment = () => {
+  const queryClient = useQueryClient();
+
+  // Usando 'any' de propósito para simplificar ao máximo a inferência de tipos
+  return useMutation<any, Error, string>({
+    mutationFn: async (billId: string) => {
+      console.log(`Iniciando estorno para o billId: ${billId}`);
+      
+      // Vamos comentar a chamada ao supabase temporariamente
+      // const { error: transactionError } = await supabase
+      //   .from("transactions")
+      //   .delete()
+      //   .eq("bill_id", billId);
+
+      // console.log("Erro da transação (se houver):", transactionError);
+
+      // Apenas retornamos uma promessa vazia para satisfazer a função async
+      return Promise.resolve();
+    },
+    onSuccess: () => {
+      console.log("Sucesso na mutação (teste)");
+    },
+    onError: (error) => {
+      console.error("Erro na mutação (teste):", error);
+    },
+  });
+};
