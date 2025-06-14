@@ -1,8 +1,7 @@
-
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useTransactions } from "@/hooks/useTransactions";
-import { type Account } from "@/hooks/useAccounts";
+import type { Account } from "@/types"; // Corrige o import
 
 interface AccountStatementDialogProps {
   account: Account | null;
@@ -20,7 +19,7 @@ export function AccountStatementDialog({ account, open, onOpenChange }: AccountS
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            Extrato - {account?.name} ({account?.bank})
+            Extrato - {account?.name}{account?.bank ? ` (${account?.bank})` : ""}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">

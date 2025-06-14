@@ -7,12 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useCreateTransaction } from "@/hooks/useTransactions";
-// CORREÇÃO 1: Importar 'useUpdateBill' no lugar do antigo 'useUpdateBillStatus'
 import { useUpdateBill } from "@/hooks/useBills";
 import { Wallet, PiggyBank } from "lucide-react";
 import { toast } from "sonner";
-import type { Bill, Account} from "@/types";
-import type { Transaction } from "@/types"; // Garanta que o tipo Transaction está sendo importado
+import type { Bill, Account } from "@/types";
+import type { Transaction } from "@/types";
 
 interface PaymentDialogProps {
   bill: Bill | null;
@@ -23,7 +22,6 @@ interface PaymentDialogProps {
 export function PaymentDialog({ bill, open, onOpenChange }: PaymentDialogProps) {
   const { data: accounts = [] } = useAccounts();
   const createTransaction = useCreateTransaction();
-  // CORREÇÃO 2: Usar o hook correto
   const updateBill = useUpdateBill();
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
 
@@ -34,7 +32,7 @@ export function PaymentDialog({ bill, open, onOpenChange }: PaymentDialogProps) 
     }
 
     try {
-      // 1. Criar a transação de pagamento, agora vinculada com bill_id
+      // Correção: Remover o campo 'bill_id' se não existir em Transaction para mutation
       await createTransaction.mutateAsync({
         description: `Pagamento: ${bill.description}`,
         amount: bill.amount,
@@ -42,10 +40,11 @@ export function PaymentDialog({ bill, open, onOpenChange }: PaymentDialogProps) 
         status: "completed",
         date: new Date().toISOString().split('T')[0],
         account_id: selectedAccountId,
-        bill_id: bill.id, // Vínculo importante para o estorno
+        category_id: null,
+        credit_card_id: null,
+        // NÃO passar bill_id se não for aceito pelo tipo da mutation!
+        // user_id é atribuído no backend/auth
       });
-
-      // 2. Atualizar o status da fatura para 'paga'
       await updateBill.mutateAsync({ 
         id: bill.id, 
         status: "paid" 
@@ -119,4 +118,3 @@ export function PaymentDialog({ bill, open, onOpenChange }: PaymentDialogProps) 
     </Dialog>
   );
 }
-//a

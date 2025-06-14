@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { useTransactions, useCreateTransaction } from "@/hooks/useTransactions";
 import { useCategories } from "@/hooks/useCategories";
-import { type CreditCard } from "@/hooks/useCreditCards";
+import type { CreditCard } from "@/types"; // Corrige o import
 import { type Transaction } from "@/hooks/useTransactions";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EditCreditCardTransactionDialog } from "@/components/EditCreditCardTransactionDialog";

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,7 @@ import { useTransactions, useCreateTransaction, useDeleteTransaction, type Trans
 import { useAccounts } from "@/hooks/useAccounts";
 import { useCategories } from "@/hooks/useCategories";
 import { EditTransactionDialog } from "@/components/EditTransactionDialog";
+import type { Account } from "@/types";
 
 export default function Transactions() {
   const { data: transactions = [], isLoading } = useTransactions();

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useUpdateTransaction, type Transaction } from "@/hooks/useTransactions";
 import { useAccounts } from "@/hooks/useAccounts";
 import { useCategories } from "@/hooks/useCategories";
+import type { Transaction, Account } from "@/types";
 
 interface EditTransactionDialogProps {
   transaction: Transaction | null;
@@ -112,9 +112,9 @@ export function EditTransactionDialog({ transaction, open, onOpenChange }: EditT
                 <SelectValue placeholder="Selecione uma conta" />
               </SelectTrigger>
               <SelectContent>
-                {accounts.map((account) => (
+                {accounts.map((account: Account) => (
                   <SelectItem key={account.id} value={account.id}>
-                    {account.name} - {account.bank}
+                    {account.name}{account.bank ? ` - ${account.bank}` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>

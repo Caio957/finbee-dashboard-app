@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, Trash2 } from "lucide-react";
 
 // --- CORREÇÃO NAS IMPORTAÇÕES ---
-import type { Account } from "@/types"; // O tipo vem de @/types
+import type { Account } from "@/types"; // Corrige o import do tipo
 import { useAccounts, useCreateAccount, useUpdateAccount, useDeleteAccount } from "@/hooks/useAccounts";
 import { AccountFormDialog } from "@/components/AccountFormDialog";
 // --- FIM DA CORREÇÃO ---

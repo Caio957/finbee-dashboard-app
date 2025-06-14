@@ -5,6 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Bill } from '@/types';
 
+// Exporta explicitamente o tipo Bill do arquivo de tipos
+export type { Bill } from "@/types";
+
 // Hook para buscar todas as faturas
 export const useBills = () => {
   return useQuery({
@@ -24,7 +27,6 @@ export const useBills = () => {
 // Hook para criar uma nova fatura
 export const useCreateBill = () => {
   const queryClient = useQueryClient();
-  // CORREÇÃO: Tipando explicitamente o useMutation
   return useMutation<Bill, Error, Omit<Bill, "id" | "created_at" | "user_id">>({
     mutationFn: async (bill) => {
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -53,7 +55,6 @@ export const useCreateBill = () => {
 // Hook para atualizar uma fatura existente
 export const useUpdateBill = () => {
   const queryClient = useQueryClient();
-  // CORREÇÃO: Tipando explicitamente o useMutation
   return useMutation<Bill, Error, Partial<Bill> & { id: string }>({
     mutationFn: async ({ id, ...bill }) => {
       const { data, error } = await supabase
@@ -79,7 +80,6 @@ export const useUpdateBill = () => {
 // Hook para deletar uma fatura e sua transação de pagamento
 export const useDeleteBill = () => {
   const queryClient = useQueryClient();
-  // CORREÇÃO: Tipando explicitamente o useMutation
   return useMutation<void, Error, string>({
     mutationFn: async (id) => {
       await supabase.from("transactions").delete().eq("bill_id", id);
@@ -98,33 +98,47 @@ export const useDeleteBill = () => {
   });
 };
 
-// Em src/hooks/useBills.ts
-
-// Hook para estornar uma fatura paga (VERSÃO DE TESTE PARA DEBUG)
+// Hook para estornar uma fatura paga
 export const useRevertBillPayment = () => {
   const queryClient = useQueryClient();
 
-  // Usando 'any' de propósito para simplificar ao máximo a inferência de tipos
   return useMutation<any, Error, string>({
     mutationFn: async (billId: string) => {
       console.log(`Iniciando estorno para o billId: ${billId}`);
       
-      // Vamos comentar a chamada ao supabase temporariamente
-      // const { error: transactionError } = await supabase
-      //   .from("transactions")
-      //   .delete()
-      //   .eq("bill_id", billId);
+      // Deletar a transação de pagamento vinculada à fatura
+      const { error: transactionError } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("bill_id", billId);
 
-      // console.log("Erro da transação (se houver):", transactionError);
+      if (transactionError) {
+        console.error("Erro ao deletar transação:", transactionError);
+        throw transactionError;
+      }
 
-      // Apenas retornamos uma promessa vazia para satisfazer a função async
-      return Promise.resolve();
+      // Atualizar o status da fatura para 'pending'
+      const { error: billError } = await supabase
+        .from("bills")
+        .update({ status: "pending" })
+        .eq("id", billId);
+
+      if (billError) {
+        console.error("Erro ao atualizar status da fatura:", billError);
+        throw billError;
+      }
+
+      return { success: true };
     },
     onSuccess: () => {
-      console.log("Sucesso na mutação (teste)");
+      queryClient.invalidateQueries({ queryKey: ["bills"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      toast.success("Pagamento estornado com sucesso!");
     },
     onError: (error) => {
-      console.error("Erro na mutação (teste):", error);
+      console.error("Erro na mutação de estorno:", error);
+      toast.error(error.message || "Erro ao estornar pagamento");
     },
   });
 };
