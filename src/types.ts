@@ -50,6 +50,8 @@ export type Transaction = {
   credit_card_id?: string | null;
   bill_id?: string | null; // <-- ADICIONE ESTA LINHA
   created_at: string;
+  accounts: { name: string; bank: string; } | null;
+  categories: { name: string; color: string; icon: string; } | null;
 };
 
 export type NewAccount = {
