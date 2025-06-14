@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, Calendar, CheckCircle, Edit, Trash2, Undo2, CreditCard, Sparkles} from "lucide-react";
-// ALTERAÇÃO 1: Importar o novo hook
-import { useBills, useCreateBill, useUpdateBillStatus, useDeleteBill, useRevertBillPayment } from "@/hooks/useBills";
+import { useBills, useCreateBill, useDeleteBill, useRevertBillPayment } from "@/hooks/useBills";
 import { useCreateTransaction } from "@/hooks/useTransactions";
 import { useCreditCards } from "@/hooks/useCreditCards";
 import { useBillCleanup } from "@/hooks/useBillCleanup";
@@ -21,11 +20,9 @@ export default function Bills() {
   const { data: bills = [], isLoading } = useBills();
   const { data: creditCards = [] } = useCreditCards();
   const createBill = useCreateBill();
-  const updateBillStatus = useUpdateBillStatus(); // Pode ser removido se não for mais usado
   const deleteBill = useDeleteBill();
   const createTransaction = useCreateTransaction();
   const billCleanup = useBillCleanup();
-  // ALTERAÇÃO 2: Inicializar o novo hook
   const revertBillPayment = useRevertBillPayment();
   
   const [searchTerm, setSearchTerm] = useState("");
@@ -82,7 +79,6 @@ export default function Bills() {
     setIsPaymentDialogOpen(true);
   };
 
-  // ALTERAÇÃO 3: Usar a nova lógica de estorno
   const handleRevertToPending = async (id: string) => {
     await revertBillPayment.mutateAsync(id);
   };
@@ -129,7 +125,6 @@ export default function Bills() {
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
-      {/* ...código do cabeçalho e resumo... */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Faturas a Pagar</h1>
@@ -153,15 +148,166 @@ export default function Bills() {
               </Button>
             </DialogTrigger>
             <DialogContent>
-                {/* ... conteúdo do formulário ... */}
+              <DialogHeader>
+                <DialogTitle>Nova Fatura</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="description">Descrição</Label>
+                  <Input
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="amount">Valor</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    value={formData.amount}
+                    onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="due_date">Data de Vencimento</Label>
+                  <Input
+                    id="due_date"
+                    type="date"
+                    value={formData.due_date}
+                    onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="category">Categoria</Label>
+                  <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Alimentação">Alimentação</SelectItem>
+                      <SelectItem value="Transporte">Transporte</SelectItem>
+                      <SelectItem value="Saúde">Saúde</SelectItem>
+                      <SelectItem value="Educação">Educação</SelectItem>
+                      <SelectItem value="Lazer">Lazer</SelectItem>
+                      <SelectItem value="Casa">Casa</SelectItem>
+                      <SelectItem value="Outros">Outros</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="recurring"
+                    checked={formData.recurring}
+                    onCheckedChange={(checked) => setFormData({ ...formData, recurring: checked })}
+                  />
+                  <Label htmlFor="recurring">Fatura recorrente</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="is_credit_card"
+                    checked={formData.is_credit_card}
+                    onCheckedChange={(checked) => setFormData({ ...formData, is_credit_card: checked })}
+                  />
+                  <Label htmlFor="is_credit_card">É uma compra no cartão?</Label>
+                </div>
+                {formData.is_credit_card && (
+                  <div>
+                    <Label htmlFor="credit_card_id">Cartão de Crédito</Label>
+                    <Select value={formData.credit_card_id} onValueChange={(value) => setFormData({ ...formData, credit_card_id: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o cartão" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {creditCards.map((card) => (
+                          <SelectItem key={card.id} value={card.id}>
+                            <div className="flex items-center gap-2">
+                              <CreditCard className="h-4 w-4" />
+                              {card.name}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={createBill.isPending}>
+                    {createBill.isPending ? "Criando..." : "Criar Fatura"}
+                  </Button>
+                </div>
+              </form>
             </DialogContent>
           </Dialog>
         </div>
       </div>
-      
-      {/* ... Resumo e Filtros ... */}
 
-      {/* Lista de Faturas */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pendentes</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-yellow-600">
+              R$ {totalPending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Vencidas</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              R$ {totalOverdue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pagas</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">
+              R$ {totalPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="Buscar faturas..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+          <SelectTrigger className="w-48">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas</SelectItem>
+            <SelectItem value="pending">Pendentes</SelectItem>
+            <SelectItem value="paid">Pagas</SelectItem>
+            <SelectItem value="overdue">Vencidas</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle>Todas as Faturas</CardTitle>
@@ -175,26 +321,43 @@ export default function Bills() {
             ) : (
               filteredBills.map((bill) => (
                 <div key={bill.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                  {/* ...informações da fatura... */}
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <h3 className="font-medium">{bill.description}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Vencimento: {new Date(bill.due_date).toLocaleDateString('pt-BR')} • {bill.category}
+                      </p>
+                    </div>
+                  </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">
-                        {/* ... */}
+                      <p className="font-bold text-lg">R$ {bill.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                      {getStatusBadge(bill.status)}
                     </div>
                     <div className="flex gap-2">
-                      {/* ...outros botões... */}
+                      {bill.status === "pending" && (
+                        <Button size="sm" onClick={() => handleMarkAsPaid(bill)}>
+                          <CheckCircle className="h-4 w-4" />
+                        </Button>
+                      )}
                       {bill.status === "paid" && (
                         <Button 
                           size="sm" 
                           variant="outline"
                           className="flex items-center gap-1"
                           onClick={() => handleRevertToPending(bill.id)}
-                          // ALTERAÇÃO 4: Usar o estado de 'pending' do novo hook
                           disabled={revertBillPayment.isPending} 
                         >
                           <Undo2 className="h-4 w-4" />
                           {revertBillPayment.isPending ? "Estornando..." : "Estornar"}
                         </Button>
                       )}
+                      <Button size="sm" variant="outline" onClick={() => handleEditBill(bill)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleDeleteBill(bill.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </div>
