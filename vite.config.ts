@@ -1,4 +1,4 @@
-// vite.config.ts (VERSÃO CORRIGIDA)
+// vite.config.ts (VERSÃO CORRIGIDA PARA VERCEL)
 
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
@@ -7,7 +7,7 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  base: '/finbee-dashboard-app/', //  <-- A CORREÇÃO É ADICIONAR APENAS ESTA LINHA
+  // base: '/finbee-dashboard-app/', // <-- DELETE OU COMENTE ESTA LINHA
   server: {
     host: "::",
     port: 8080,
