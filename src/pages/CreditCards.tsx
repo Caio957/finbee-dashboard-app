@@ -15,6 +15,8 @@ import { CreditCardInvoiceDialog } from "@/components/CreditCardInvoiceDialog";
 import { ConfigureCreditCardDialog } from "@/components/ConfigureCreditCardDialog";
 import { CreditCardPaymentDialog } from "@/components/CreditCardPaymentDialog";
 import { toast } from "sonner";
+import type { CreditCard } from "@/types";
+import type { Account } from "@/types";
 
 export default function CreditCards() {
   const { data: creditCards = [], isLoading } = useCreditCards();
@@ -41,7 +43,6 @@ export default function CreditCards() {
     e.preventDefault();
     await createCreditCard.mutateAsync({
       ...formData,
-      used_amount: 0,
       status: "active" as const,
     });
     setIsDialogOpen(false);

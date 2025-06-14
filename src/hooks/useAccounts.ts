@@ -5,6 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Account } from "@/types";
 
+// Exporta explicitamente o tipo Account do arquivo de tipos
+export type { Account } from "@/types";
+
 // Hook para buscar todas as contas
 export const useAccounts = () => {
   return useQuery({
@@ -55,12 +58,45 @@ export const useCreateAccount = () => {
   });
 };
 
-// Hooks useUpdateAccount e useDeleteAccount permanecem como na versão anterior,
-// pois já estavam corretos.
+// Implementação de useUpdateAccount
 export const useUpdateAccount = () => {
-  // ... (código que já funcionava)
+  const queryClient = useQueryClient();
+  return useMutation<Account, Error, Partial<Account> & { id: string }>({
+    mutationFn: async ({ id, ...account }) => {
+      const { data, error } = await supabase
+        .from("accounts")
+        .update(account)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as Account;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      toast.success("Conta atualizada com sucesso!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao atualizar conta");
+    },
+  });
 };
 
+// Implementação de useDeleteAccount
 export const useDeleteAccount = () => {
-  // ... (código que já funcionava)
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, string>({
+    mutationFn: async (id) => {
+      const { error } = await supabase.from("accounts").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      toast.success("Conta excluída com sucesso!");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Erro ao excluir conta");
+    },
+  });
 };

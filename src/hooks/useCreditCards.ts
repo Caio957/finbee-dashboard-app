@@ -8,6 +8,9 @@ import type { CreditCard } from '@/types';
 // Funções auxiliares podem permanecer aqui no topo, se você as tiver.
 // Ex: cleanupDuplicateBills, createOrUpdateCreditCardBill
 
+// Exporta explicitamente o tipo CreditCard do arquivo de tipos
+export type { CreditCard } from "@/types";
+
 // Hook principal para buscar e processar os cartões de crédito
 export const useCreditCards = () => {
   return useQuery({

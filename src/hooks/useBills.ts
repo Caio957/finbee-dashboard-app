@@ -1,10 +1,12 @@
-
 // src/hooks/useBills.ts (VERSÃO COM TIPAGEM EXPLÍCITA)
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Bill } from '@/types';
+
+// Exporta explicitamente o tipo Bill do arquivo de tipos
+export type { Bill } from "@/types";
 
 // Hook para buscar todas as faturas
 export const useBills = () => {
