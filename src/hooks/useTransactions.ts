@@ -50,7 +50,6 @@ export const useCreateTransaction = () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
-      queryClient.invalidateQueries({ queryKey: ["bills"] });
       toast.success("Transação criada com sucesso!");
     },
     onError: (error) => {
@@ -78,7 +77,6 @@ export const useUpdateTransaction = () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
-      queryClient.invalidateQueries({ queryKey: ["bills"] });
       toast.success("Transação atualizada com sucesso!");
     },
     onError: (error) => {
@@ -103,7 +101,6 @@ export const useDeleteTransaction = () => {
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["accounts"] });
       queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
-      queryClient.invalidateQueries({ queryKey: ["bills"] });
       toast.success("Transação excluída com sucesso!");
     },
     onError: (error) => {
