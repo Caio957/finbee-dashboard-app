@@ -1,8 +1,7 @@
-
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useTransactions } from "@/hooks/useTransactions";
-import type { Account } from "@/types"; // Corrigido import de tipo
+import type { Account } from "@/types"; // Corrige o import
 
 interface AccountStatementDialogProps {
   account: Account | null;

@@ -32,7 +32,7 @@ export function PaymentDialog({ bill, open, onOpenChange }: PaymentDialogProps) 
     }
 
     try {
-      // 1. Criar a transação de pagamento, agora vinculada com bill_id (ajusta para aceitar bill_id na tipagem)
+      // Correção: Remover o campo 'bill_id' se não existir em Transaction para mutation
       await createTransaction.mutateAsync({
         description: `Pagamento: ${bill.description}`,
         amount: bill.amount,
@@ -42,10 +42,9 @@ export function PaymentDialog({ bill, open, onOpenChange }: PaymentDialogProps) 
         account_id: selectedAccountId,
         category_id: null,
         credit_card_id: null,
-        bill_id: bill.id,
-        user_id: "", // será preenchido pelo backend
-      } as any); // Necessário para que bill_id passe
-      // 2. Atualizar o status da fatura para 'paga'
+        // NÃO passar bill_id se não for aceito pelo tipo da mutation!
+        // user_id é atribuído no backend/auth
+      });
       await updateBill.mutateAsync({ 
         id: bill.id, 
         status: "paid" 

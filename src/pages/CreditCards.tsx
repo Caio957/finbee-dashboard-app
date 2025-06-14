@@ -43,7 +43,7 @@ export default function CreditCards() {
     e.preventDefault();
     await createCreditCard.mutateAsync({
       ...formData,
-      status: "active" as const,
+      status: "active", // Não enviar used_amount
     });
     setIsDialogOpen(false);
     setFormData({
