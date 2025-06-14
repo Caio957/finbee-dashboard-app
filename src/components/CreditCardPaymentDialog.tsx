@@ -9,6 +9,7 @@ import { useUpdateCreditCard } from "@/hooks/useCreditCards";
 import { Wallet, CreditCard, PiggyBank } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CreditCardPaymentDialogProps {
   card: {
@@ -84,6 +85,13 @@ export function CreditCardPaymentDialog({ card, open, onOpenChange }: CreditCard
         id: card.id,
         used_amount: 0,
       });
+
+      // Atualizar status das faturas relacionadas para 'paid'
+      await supabase
+        .from("bills")
+        .update({ status: "paid" })
+        .eq("credit_card_id", card.id)
+        .eq("status", "pending");
 
       // Invalida a query das faturas para atualizar a tela de Faturas a Pagar
       queryClient.invalidateQueries({ queryKey: ["bills"] });
