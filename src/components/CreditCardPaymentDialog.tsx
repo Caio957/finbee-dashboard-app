@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { useCreateTransaction } from "@/hooks/useTransactions";
 import { useUpdateCreditCard } from "@/hooks/useCreditCards";
 import { Wallet, CreditCard, PiggyBank } from "lucide-react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface CreditCardPaymentDialogProps {
   card: {
@@ -27,6 +27,7 @@ export function CreditCardPaymentDialog({ card, open, onOpenChange }: CreditCard
   const updateCreditCard = useUpdateCreditCard();
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const queryClient = useQueryClient();
 
   const getAccountIcon = (type: string) => {
     switch (type) {
@@ -83,6 +84,9 @@ export function CreditCardPaymentDialog({ card, open, onOpenChange }: CreditCard
         id: card.id,
         used_amount: 0,
       });
+
+      // Invalida a query das faturas para atualizar a tela de Faturas a Pagar
+      queryClient.invalidateQueries({ queryKey: ["bills"] });
 
       toast.success("Fatura do cartão paga com sucesso!");
       onOpenChange(false);
