@@ -93,8 +93,17 @@ export function CreditCardPaymentDialog({ card, open, onOpenChange }: CreditCard
         .eq("credit_card_id", card.id)
         .eq("status", "pending");
 
+      // Atualizar o status das transações relacionadas ao cartão para 'completed'
+      await supabase
+        .from("transactions")
+        .update({ status: "completed" })
+        .eq("credit_card_id", card.id)
+        .eq("type", "expense")
+        .eq("status", "pending");
+
       // Invalida a query das faturas para atualizar a tela de Faturas a Pagar
       queryClient.invalidateQueries({ queryKey: ["bills"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
 
       toast.success("Fatura do cartão paga com sucesso!");
       onOpenChange(false);
