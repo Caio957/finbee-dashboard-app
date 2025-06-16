@@ -38,7 +38,7 @@ export default function Bills() {
     due_date: "",
     category: "Outros",
     recurring: false,
-    credit_card_id: "",
+    credit_card_id: "none-selected",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,7 +47,7 @@ export default function Bills() {
     const billData = {
       ...formData,
       status: "pending" as const,
-      credit_card_id: formData.credit_card_id === "" ? null : formData.credit_card_id,
+      credit_card_id: formData.credit_card_id === "" || formData.credit_card_id === "none-selected" ? null : formData.credit_card_id,
     };
 
     await createBill.mutateAsync(billData);
@@ -72,7 +72,7 @@ export default function Bills() {
       due_date: "",
       category: "Outros",
       recurring: false,
-      credit_card_id: "",
+      credit_card_id: "none-selected",
     });
   };
 
@@ -216,7 +216,7 @@ export default function Bills() {
                       <SelectValue placeholder="Selecione o cartão (Opcional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhum (Não é compra no cartão)</SelectItem>
+                      <SelectItem value="none-selected">Nenhum (Não é compra no cartão)</SelectItem>
                       {creditCards.map((card) => (
                         <SelectItem key={card.id} value={card.id}>
                           <div className="flex items-center gap-2">
