@@ -106,6 +106,58 @@ export const useRevertBillPayment = () => {
     mutationFn: async (billId: string) => {
       console.log(`Iniciando estorno para o billId: ${billId}`);
       
+      // Primeiro, buscar a fatura e sua transação
+      const { data: bill, error: billFetchError } = await supabase
+        .from("bills")
+        .select(`
+          *,
+          transactions (
+            id,
+            account_id,
+            amount
+          )
+        `)
+        .eq("id", billId)
+        .single();
+
+      if (billFetchError) {
+        console.error("Erro ao buscar fatura:", billFetchError);
+        throw billFetchError;
+      }
+
+      if (!bill.transactions || bill.transactions.length === 0) {
+        throw new Error("Nenhuma transação encontrada para esta fatura");
+      }
+
+      const transaction = bill.transactions[0];
+
+      if (!transaction.account_id) {
+        throw new Error("Conta não encontrada para esta transação");
+      }
+
+      // Buscar a conta atual
+      const { data: account, error: accountError } = await supabase
+        .from("accounts")
+        .select("balance")
+        .eq("id", transaction.account_id)
+        .single();
+
+      if (accountError) {
+        console.error("Erro ao buscar conta:", accountError);
+        throw accountError;
+      }
+
+      // Atualizar o saldo da conta (adicionar o valor de volta)
+      const { error: updateAccountError } = await supabase
+        .from("accounts")
+        .update({ balance: account.balance + bill.amount })
+        .eq("id", transaction.account_id);
+
+      if (updateAccountError) {
+        console.error("Erro ao atualizar saldo da conta:", updateAccountError);
+        throw updateAccountError;
+      }
+
       // Deletar a transação de pagamento vinculada à fatura
       const { error: transactionError } = await supabase
         .from("transactions")
