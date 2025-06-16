@@ -52,18 +52,18 @@ export default function Bills() {
 
     await createBill.mutateAsync(billData);
 
-    if (billData.credit_card_id) {
-      await createTransaction.mutateAsync({
-        description: formData.description,
-        amount: formData.amount,
-        type: "expense",
-        status: "completed",
-        date: new Date().toISOString().split('T')[0],
-        account_id: null,
-        category_id: null,
-        credit_card_id: billData.credit_card_id,
-      });
-    }
+    //if (billData.credit_card_id) {
+      //await createTransaction.mutateAsync({
+        //description: formData.description,
+        //amount: formData.amount,
+        //type: "expense",
+        //status: "completed",
+        //date: new Date().toISOString().split('T')[0],
+        //account_id: null,
+        //category_id: null,
+        //credit_card_id: billData.credit_card_id,
+      //});
+    //}
 
     setIsDialogOpen(false);
     setFormData({
