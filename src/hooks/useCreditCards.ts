@@ -58,7 +58,7 @@ export const useCreditCards = () => {
             }
 
             // Chamada à sua função auxiliar para atualizar a fatura no banco
-            await createOrUpdateCreditCardBill(card, calculatedUsedAmount);
+            //await createOrUpdateCreditCardBill(card, calculatedUsedAmount);
 
             return {
               ...card,
