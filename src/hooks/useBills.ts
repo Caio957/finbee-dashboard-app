@@ -57,6 +57,14 @@ export const useUpdateBill = () => {
   const queryClient = useQueryClient();
   return useMutation<Bill, Error, Partial<Bill> & { id: string }>({
     mutationFn: async ({ id, ...bill }) => {
+      const { data: oldBill, error: fetchError } = await supabase
+        .from("bills")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
       const { data, error } = await supabase
         .from("bills")
         .update(bill)
@@ -65,10 +73,65 @@ export const useUpdateBill = () => {
         .single();
 
       if (error) throw error;
+
+      // Se o status mudou para 'paid' e não havia transação vinculada, crie uma
+      if (bill.status === "paid" && oldBill.status !== "paid") {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!sessionData.session) throw new Error("Usuário não autenticado.");
+
+        // TODO: Precisamos garantir que a fatura tenha um account_id para criar a transação
+        // Por enquanto, vou assumir que a fatura tem um account_id ou que o usuário vai fornecer. 
+        // Se a fatura não tem account_id, precisaríamos buscar ou solicitar essa informação.
+
+        const { error: transactionError } = await supabase.from("transactions").insert({
+          description: `Pagamento de fatura: ${bill.description || oldBill.description}`,
+          amount: bill.amount || oldBill.amount,
+          type: "expense",
+          status: "completed",
+          date: new Date().toISOString().split('T')[0],
+          user_id: sessionData.session.user.id,
+          bill_id: id, // Vincula a transação à fatura
+          account_id: oldBill.account_id, // Usar o account_id da fatura antiga, se existir
+          category_id: oldBill.category_id, // Usar o category_id da fatura antiga, se existir
+        });
+
+        if (transactionError) {
+          console.error("Erro ao criar transação de pagamento:", transactionError);
+          throw transactionError;
+        }
+
+        // Atualizar o saldo da conta (deduzir o valor)
+        if (oldBill.account_id && bill.amount) {
+          const { data: account, error: accountError } = await supabase
+            .from("accounts")
+            .select("balance")
+            .eq("id", oldBill.account_id)
+            .single();
+
+          if (accountError) {
+            console.error("Erro ao buscar conta:", accountError);
+            throw accountError;
+          }
+
+          const { error: updateAccountError } = await supabase
+            .from("accounts")
+            .update({ balance: account.balance - bill.amount })
+            .eq("id", oldBill.account_id);
+
+          if (updateAccountError) {
+            console.error("Erro ao atualizar saldo da conta:", updateAccountError);
+            throw updateAccountError;
+          }
+        }
+      }
+
       return data as Bill;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bills"] });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
       toast.success("Fatura atualizada com sucesso!");
     },
     onError: (error) => {
@@ -169,10 +232,10 @@ export const useRevertBillPayment = () => {
         throw transactionError;
       }
 
-      // Atualizar o status da fatura para 'pending'
+      // Atualizar o status da fatura para 'pending' e limpar o account_id
       const { error: billError } = await supabase
         .from("bills")
-        .update({ status: "pending" })
+        .update({ status: "pending", account_id: null })
         .eq("id", billId);
 
       if (billError) {

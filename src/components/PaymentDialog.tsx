@@ -47,7 +47,8 @@ export function PaymentDialog({ bill, open, onOpenChange }: PaymentDialogProps) 
       });
       await updateBill.mutateAsync({ 
         id: bill.id, 
-        status: "paid" 
+        status: "paid",
+        account_id: selectedAccountId,
       });
 
       toast.success("Pagamento realizado com sucesso!");
