@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Bill } from '@/types';
+import type { Database } from "@/integrations/supabase/types"; // Importa o tipo Database
 
 // Exporta explicitamente o tipo Bill do arquivo de tipos
 export type { Bill } from "@/types";
@@ -65,6 +66,9 @@ export const useUpdateBill = () => {
 
       if (fetchError) throw fetchError;
 
+      // Explicitamente tipar oldBill como Database['public']['Tables']['bills']['Row']
+      const currentBill: Database['public']['Tables']['bills']['Row'] = oldBill as Database['public']['Tables']['bills']['Row'];
+
       const { data, error } = await supabase
         .from("bills")
         .update(bill)
@@ -75,26 +79,42 @@ export const useUpdateBill = () => {
       if (error) throw error;
 
       // Se o status mudou para 'paid' e não havia transação vinculada, crie uma
-      if (bill.status === "paid" && oldBill.status !== "paid") {
+      if (bill.status === "paid" && currentBill.status !== "paid") {
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) throw sessionError;
         if (!sessionData.session) throw new Error("Usuário não autenticado.");
 
-        // TODO: Precisamos garantir que a fatura tenha um account_id para criar a transação
-        // Por enquanto, vou assumir que a fatura tem um account_id ou que o usuário vai fornecer. 
-        // Se a fatura não tem account_id, precisaríamos buscar ou solicitar essa informação.
+        // Buscar o category_id baseado no category da fatura
+        let transactionCategoryId: string | null = null;
+        if (currentBill.category) {
+          const { data: categoryData, error: categoryError } = await supabase
+            .from("categories")
+            .select("id")
+            .eq("name", currentBill.category)
+            .single();
 
-        const { error: transactionError } = await supabase.from("transactions").insert({
-          description: `Pagamento de fatura: ${bill.description || oldBill.description}`,
-          amount: bill.amount || oldBill.amount,
-          type: "expense",
-          status: "completed",
-          date: new Date().toISOString().split('T')[0],
-          user_id: sessionData.session.user.id,
-          bill_id: id, // Vincula a transação à fatura
-          account_id: oldBill.account_id, // Usar o account_id da fatura antiga, se existir
-          category_id: oldBill.category_id, // Usar o category_id da fatura antiga, se existir
-        });
+          if (categoryError) {
+            console.error("Erro ao buscar ID da categoria:", categoryError);
+            // Decidir como lidar com este erro (ignorar, lançar, etc.)
+            // Por enquanto, vamos apenas registrar o erro e prosseguir com category_id nulo
+          } else if (categoryData) {
+            transactionCategoryId = categoryData.id;
+          }
+        }
+
+        const { error: transactionError } = await supabase.from("transactions").insert(
+          {
+            description: `Pagamento de fatura: ${bill.description || currentBill.description}`,
+            amount: bill.amount || currentBill.amount,
+            type: "expense",
+            status: "completed",
+            date: new Date().toISOString().split('T')[0],
+            user_id: sessionData.session.user.id,
+            bill_id: id, // Vincula a transação à fatura
+            account_id: currentBill.account_id, // Usar o account_id da fatura antiga
+            category_id: transactionCategoryId, // Usar o category_id obtido
+          } as Database['public']['Tables']['transactions']['Insert']
+        );
 
         if (transactionError) {
           console.error("Erro ao criar transação de pagamento:", transactionError);
@@ -102,11 +122,11 @@ export const useUpdateBill = () => {
         }
 
         // Atualizar o saldo da conta (deduzir o valor)
-        if (oldBill.account_id && bill.amount) {
+        if (currentBill.account_id && bill.amount) {
           const { data: account, error: accountError } = await supabase
             .from("accounts")
             .select("balance")
-            .eq("id", oldBill.account_id)
+            .eq("id", currentBill.account_id)
             .single();
 
           if (accountError) {
@@ -117,8 +137,7 @@ export const useUpdateBill = () => {
           const { error: updateAccountError } = await supabase
             .from("accounts")
             .update({ balance: account.balance - bill.amount })
-            .eq("id", oldBill.account_id);
-
+            .eq("id", currentBill.account_id);
           if (updateAccountError) {
             console.error("Erro ao atualizar saldo da conta:", updateAccountError);
             throw updateAccountError;

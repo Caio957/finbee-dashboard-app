@@ -11,6 +11,7 @@ export type Bill = {
   user_id: string;
   credit_card_id?: string | null;
   created_at: string;
+  account_id?: string | null;
 };
 
 export type Account = {
