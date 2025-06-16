@@ -38,27 +38,30 @@ export default function Bills() {
     due_date: "",
     category: "Outros",
     recurring: false,
-    is_credit_card: false,
     credit_card_id: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await createBill.mutateAsync({
+    
+    const billData = {
       ...formData,
       status: "pending" as const,
-    });
+      credit_card_id: formData.credit_card_id === "" ? null : formData.credit_card_id,
+    };
 
-    if (formData.is_credit_card && formData.credit_card_id) {
+    await createBill.mutateAsync(billData);
+
+    if (billData.credit_card_id) {
       await createTransaction.mutateAsync({
         description: formData.description,
         amount: formData.amount,
         type: "expense",
-        status: "pending",
+        status: "completed",
         date: new Date().toISOString().split('T')[0],
         account_id: null,
         category_id: null,
-        credit_card_id: formData.credit_card_id,
+        credit_card_id: billData.credit_card_id,
       });
     }
 
@@ -69,7 +72,6 @@ export default function Bills() {
       due_date: "",
       category: "Outros",
       recurring: false,
-      is_credit_card: false,
       credit_card_id: "",
     });
   };
@@ -207,34 +209,25 @@ export default function Bills() {
                   />
                   <Label htmlFor="recurring">Fatura recorrente</Label>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="is_credit_card"
-                    checked={formData.is_credit_card}
-                    onCheckedChange={(checked) => setFormData({ ...formData, is_credit_card: checked })}
-                  />
-                  <Label htmlFor="is_credit_card">É uma compra no cartão?</Label>
+                <div>
+                  <Label htmlFor="credit_card_id">Cartão de Crédito (Opcional)</Label>
+                  <Select value={formData.credit_card_id} onValueChange={(value) => setFormData({ ...formData, credit_card_id: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o cartão (Opcional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Nenhum (Não é compra no cartão)</SelectItem>
+                      {creditCards.map((card) => (
+                        <SelectItem key={card.id} value={card.id}>
+                          <div className="flex items-center gap-2">
+                            <CreditCard className="h-4 w-4" />
+                            {card.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                {formData.is_credit_card && (
-                  <div>
-                    <Label htmlFor="credit_card_id">Cartão de Crédito</Label>
-                    <Select value={formData.credit_card_id} onValueChange={(value) => setFormData({ ...formData, credit_card_id: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o cartão" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {creditCards.map((card) => (
-                          <SelectItem key={card.id} value={card.id}>
-                            <div className="flex items-center gap-2">
-                              <CreditCard className="h-4 w-4" />
-                              {card.name}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                     Cancelar
