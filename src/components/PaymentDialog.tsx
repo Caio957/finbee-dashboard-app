@@ -46,7 +46,7 @@ const handlePayment = async () => {
     // AÇÃO 2: Crie a transação de pagamento DEPOIS.
     // Agora temos certeza de que esta será a única transação de pagamento criada.
     await createTransaction.mutateAsync({
-      description: `Pagamento: ${bill.description}`,
+      description: `[PAGAMENTO_DIALOGO] Pagamento: ${bill.description}`, // Adicionamos a marca
       amount: bill.amount,
       type: "expense",
       status: "completed",
