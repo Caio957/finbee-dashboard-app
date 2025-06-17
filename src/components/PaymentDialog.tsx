@@ -27,6 +27,8 @@ export function PaymentDialog({ bill, open, onOpenChange }: PaymentDialogProps) 
 
   // Em src/components/PaymentDialog.tsx
 
+// Em src/components/PaymentDialog.tsx
+
 const handlePayment = async () => {
   if (!bill || !selectedAccountId) {
     toast.error("Selecione uma conta para o pagamento");
@@ -34,23 +36,23 @@ const handlePayment = async () => {
   }
 
   try {
-    // Passo 1: CRIAR a transação de pagamento. Esta é a única fonte da verdade.
-    // A trigger 'update_account_balance' no banco vai cuidar de atualizar o saldo da conta.
+    // AÇÃO 1: Mude o status da fatura para 'paga' PRIMEIRO.
+    // Isso "desarma" qualquer outra lógica que dependa do status 'pending'.
+    await updateBill.mutateAsync({ 
+      id: bill.id, 
+      status: "paid",
+    });
+
+    // AÇÃO 2: Crie a transação de pagamento DEPOIS.
+    // Agora temos certeza de que esta será a única transação de pagamento criada.
     await createTransaction.mutateAsync({
       description: `Pagamento: ${bill.description}`,
       amount: bill.amount,
       type: "expense",
       status: "completed",
       date: new Date().toISOString().split('T')[0],
-      account_id: selectedAccountId, // Passa a conta de onde o dinheiro saiu
-      bill_id: bill.id              // Vincula a transação à fatura paga
-    });
-
-    // Passo 2: APENAS ATUALIZAR o status da fatura para 'paga'.
-    // Não precisamos passar o account_id aqui, pois a transação já foi criada.
-    await updateBill.mutateAsync({ 
-      id: bill.id, 
-      status: "paid",
+      account_id: selectedAccountId,
+      bill_id: bill.id
     });
 
     toast.success("Pagamento realizado com sucesso!");
