@@ -45,15 +45,15 @@ const handlePayment = async () => {
 
     // AÇÃO 2: Crie a transação de pagamento DEPOIS.
     // Agora temos certeza de que esta será a única transação de pagamento criada.
-    await createTransaction.mutateAsync({
-      description: `[PAGAMENTO_DIALOGO] Pagamento: ${bill.description}`, // Adicionamos a marca
-      amount: bill.amount,
-      type: "expense",
-      status: "completed",
-      date: new Date().toISOString().split('T')[0],
-      account_id: selectedAccountId,
-      bill_id: bill.id
-    });
+    //await createTransaction.mutateAsync({
+      //description: `[PAGAMENTO_DIALOGO] Pagamento: ${bill.description}`, // Adicionamos a marca
+      //amount: bill.amount,
+      //type: "expense",
+      //status: "completed",
+      //date: new Date().toISOString().split('T')[0],
+      //account_id: selectedAccountId,
+      //bill_id: bill.id
+    //});
 
     toast.success("Pagamento realizado com sucesso!");
     onOpenChange(false);
