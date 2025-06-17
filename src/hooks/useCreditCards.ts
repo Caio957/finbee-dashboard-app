@@ -1,94 +1,33 @@
-// src/hooks/useCreditCards.ts (VERSÃO FINAL E VERIFICADA)
+// src/hooks/useCreditCards.ts (VERSÃO FINAL E COERENTE)
 
-import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { CreditCard } from '@/types';
 
-// Opcional: Mantenha suas funções auxiliares aqui se as tiver
-const createOrUpdateCreditCardBill = async (card: CreditCard, amount: number) => {
-    // Implemente a lógica para criar ou atualizar a fatura (bill) aqui
-};
-
-
-// Hook principal para buscar e processar os cartões de crédito
+// Hook principal - AGORA APENAS PARA LEITURA
 export const useCreditCards = () => {
-  const queryClient = useQueryClient();
-
-  const queryResult = useQuery({
+  return useQuery({
     queryKey: ["credit_cards"],
     queryFn: async (): Promise<CreditCard[]> => {
-      const { data: cards, error: cardsError } = await supabase
+      // A função agora é um simples SELECT.
+      // O 'used_amount' já virá correto do banco de dados graças às suas triggers.
+      const { data, error } = await supabase
         .from("credit_cards")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (cardsError) {
-        console.error("Erro ao buscar cartões de crédito:", cardsError);
-        throw cardsError;
-      }
-
-      if (!cards) return [];
-
-      const cardsWithUsedAmount = await Promise.all(
-        cards.map(async (card: CreditCard) => {
-          try {
-            const { data: transactions, error: transactionsError } = await supabase
-              .from("transactions")
-              .select("amount")
-              .eq("credit_card_id", card.id)
-              .eq("type", "expense")
-              .eq("status", "completed");
-
-            if (transactionsError) {
-              console.error(`Erro ao buscar transações para o cartão ${card.name}:`, transactionsError);
-              return card;
-            }
-
-            const calculatedUsedAmount = (transactions || []).reduce((sum, transaction) => {
-              return sum + Number(transaction.amount);
-            }, 0);
-
-            if (Math.abs(calculatedUsedAmount - Number(card.used_amount)) > 0.01) {
-              await supabase
-                .from("credit_cards")
-                .update({ used_amount: calculatedUsedAmount })
-                .eq("id", card.id);
-            }
-
-            // Chamada à sua função auxiliar para atualizar a fatura no banco
-            //await createOrUpdateCreditCardBill(card, calculatedUsedAmount);
-
-            return {
-              ...card,
-              used_amount: calculatedUsedAmount,
-            };
-          } catch (e) {
-            console.error(`ERRO FATAL processando o cartão ${card.name}:`, e);
-            return card;
-          }
-        })
-      );
-      // A asserção de tipo é necessária aqui por causa do Supabase
-      return cardsWithUsedAmount as CreditCard[];
+      if (error) throw error;
+      return (data || []) as CreditCard[];
     },
     staleTime: 60000,
     refetchOnWindowFocus: false,
   });
-
-  // A forma correta de executar uma ação após a query, usando useEffect
-  useEffect(() => {
-    if (queryResult.isSuccess) {
-      console.log("Dados dos cartões recalculados, invalidando faturas para atualização...");
-      queryClient.invalidateQueries({ queryKey: ["bills"] });
-    }
-  }, [queryResult.data, queryResult.isSuccess, queryClient]);
-
-  return queryResult;
 };
 
-// Hook para criar um novo cartão de crédito
+// Os hooks de mutação para CRIAR, EDITAR e DELETAR um cartão continuam aqui,
+// pois são ações diretas do usuário e não cálculos automáticos.
+
 export const useCreateCreditCard = () => {
   const queryClient = useQueryClient();
   return useMutation<CreditCard, Error, Omit<CreditCard, "id" | "created_at" | "user_id" | "used_amount">>({
@@ -104,7 +43,6 @@ export const useCreateCreditCard = () => {
         .single();
       
       if (error) throw error;
-      // O retorno correto que estava faltando
       return cardData as CreditCard;
     },
     onSuccess: () => {
@@ -117,8 +55,6 @@ export const useCreateCreditCard = () => {
   });
 };
 
-
-// Hook para atualizar um cartão de crédito existente
 export const useUpdateCreditCard = () => {
   const queryClient = useQueryClient();
   return useMutation<CreditCard, Error, Partial<CreditCard> & { id: string }>({
@@ -143,18 +79,19 @@ export const useUpdateCreditCard = () => {
   });
 };
 
-// Hook para deletar um cartão de crédito
 export const useDeleteCreditCard = () => {
   const queryClient = useQueryClient();
   return useMutation<void, Error, string>({
     mutationFn: async (id: string) => {
       await supabase.from("bills").delete().eq("credit_card_id", id);
+      await supabase.from("transactions").delete().eq("credit_card_id", id);
       const { error } = await supabase.from("credit_cards").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
         queryClient.invalidateQueries({ queryKey: ["bills"] });
+        queryClient.invalidateQueries({ queryKey: ["transactions"] });
         toast.success("Cartão excluído com sucesso!");
     },
     onError: (error: any) => {
