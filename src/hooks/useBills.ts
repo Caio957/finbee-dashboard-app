@@ -102,24 +102,24 @@ export const useUpdateBill = () => {
           }
         }
 
-        const { error: transactionError } = await supabase.from("transactions").insert(
-          {
-            description: `Pagamento de fatura: ${bill.description || currentBill.description}`,
-            amount: bill.amount || currentBill.amount,
-            type: "expense",
-            status: "completed",
-            date: new Date().toISOString().split('T')[0],
-            user_id: sessionData.session.user.id,
-            bill_id: id, // Vincula a transação à fatura
-            account_id: currentBill.account_id, // Usar o account_id da fatura antiga
-            category_id: transactionCategoryId, // Usar o category_id obtido
-          } as Database['public']['Tables']['transactions']['Insert']
-        );
+        //const { error: transactionError } = await supabase.from("transactions").insert(
+          //{
+           // description: `Pagamento de fatura: ${bill.description || currentBill.description}`,
+           // amount: bill.amount || currentBill.amount,
+           // type: "expense",
+           // status: "completed",
+           // date: new Date().toISOString().split('T')[0],
+           // user_id: sessionData.session.user.id,
+           // bill_id: id, // Vincula a transação à fatura
+           // account_id: currentBill.account_id, // Usar o account_id da fatura antiga
+          //  category_id: transactionCategoryId, // Usar o category_id obtido
+          //} as Database['public']['Tables']['transactions']['Insert']
+        //);
 
-        if (transactionError) {
-          console.error("Erro ao criar transação de pagamento:", transactionError);
-          throw transactionError;
-        }
+        //if (transactionError) {
+         // console.error("Erro ao criar transação de pagamento:", transactionError);
+         // throw transactionError;
+       // }
 
         // Atualizar o saldo da conta (deduzir o valor)
         if (currentBill.account_id && bill.amount) {
