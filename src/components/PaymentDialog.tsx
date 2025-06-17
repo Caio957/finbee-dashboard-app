@@ -25,41 +25,42 @@ export function PaymentDialog({ bill, open, onOpenChange }: PaymentDialogProps) 
   const updateBill = useUpdateBill();
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
 
-  const handlePayment = async () => {
-    if (!bill || !selectedAccountId) {
-      toast.error("Selecione uma conta para o pagamento");
-      return;
-    }
+  // Em src/components/PaymentDialog.tsx
 
-    try {
-      // Correção: Remover o campo 'bill_id' se não existir em Transaction para mutation
-      //await createTransaction.mutateAsync({
-        //description: `Pagamento: ${bill.description}`,
-        //amount: bill.amount,
-        //type: "expense",
-        //status: "completed",
-        //date: new Date().toISOString().split('T')[0],
-        //account_id: selectedAccountId,
-        //category_id: null,
-        //credit_card_id: null,
-        //========================================================================
-        // NÃO passar bill_id se não for aceito pelo tipo da mutation!
-        // user_id é atribuído no backend/auth
-      //});
-      await updateBill.mutateAsync({ 
-        id: bill.id, 
-        status: "paid",
-        account_id: selectedAccountId,
-      });
+const handlePayment = async () => {
+  if (!bill || !selectedAccountId) {
+    toast.error("Selecione uma conta para o pagamento");
+    return;
+  }
 
-      toast.success("Pagamento realizado com sucesso!");
-      onOpenChange(false);
-      setSelectedAccountId("");
-    } catch (error: any) {
-      console.error("Erro ao processar pagamento:", error);
-      toast.error(error.message || "Erro ao processar pagamento");
-    }
-  };
+  try {
+    // Passo 1: CRIAR a transação de pagamento. Esta é a única fonte da verdade.
+    // A trigger 'update_account_balance' no banco vai cuidar de atualizar o saldo da conta.
+    await createTransaction.mutateAsync({
+      description: `Pagamento: ${bill.description}`,
+      amount: bill.amount,
+      type: "expense",
+      status: "completed",
+      date: new Date().toISOString().split('T')[0],
+      account_id: selectedAccountId, // Passa a conta de onde o dinheiro saiu
+      bill_id: bill.id              // Vincula a transação à fatura paga
+    });
+
+    // Passo 2: APENAS ATUALIZAR o status da fatura para 'paga'.
+    // Não precisamos passar o account_id aqui, pois a transação já foi criada.
+    await updateBill.mutateAsync({ 
+      id: bill.id, 
+      status: "paid",
+    });
+
+    toast.success("Pagamento realizado com sucesso!");
+    onOpenChange(false);
+    setSelectedAccountId("");
+  } catch (error: any) {
+    console.error("Erro ao processar pagamento:", error);
+    toast.error(error.message || "Erro ao processar pagamento");
+  }
+};
 
   if (!bill) return null;
 
